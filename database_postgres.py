@@ -3,12 +3,13 @@ PostgreSQL Database Support Module
 Handles all database operations using PostgreSQL with psycopg2
 """
 import psycopg2
+import psycopg2.extras  # Add this import
 from psycopg2 import sql, Error
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 import datetime
+import json  # Add json module
 from typing import List, Tuple, Optional
 from config import DB_CONFIG
-
 
 class PostgresDBManager:
     """Manages PostgreSQL database connection and operations"""
@@ -56,7 +57,7 @@ class PostgresDBManager:
 
             # Check if database exists
             cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s",
-                           (DB_CONFIG['database'],))
+                         (DB_CONFIG['database'],))
 
             if not cursor.fetchone():
                 # Create the database
@@ -77,320 +78,122 @@ class PostgresDBManager:
 
         # Users table
         self.cursor.execute('''
-                            CREATE TABLE IF NOT EXISTS users
-                            (
-                                user_id
-                                SERIAL
-                                PRIMARY
-                                KEY,
-                                name
-                                VARCHAR
-                            (
-                                100
-                            ) NOT NULL,
-                                age INTEGER CHECK
-                            (
-                                age >
-                                0
-                                AND
-                                age <
-                                150
-                            ),
-                                gender VARCHAR
-                            (
-                                10
-                            ) CHECK
-                            (
-                                gender
-                                IN
-                            (
-                                'Male',
-                                'Female',
-                                'Other'
-                            )),
-                                email VARCHAR
-                            (
-                                100
-                            ) UNIQUE NOT NULL,
-                                phone VARCHAR
-                            (
-                                20
-                            ),
-                                created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                last_login TIMESTAMP,
-                                is_active BOOLEAN DEFAULT TRUE
-                                )
-                            ''')
+            CREATE TABLE IF NOT EXISTS users (
+                user_id SERIAL PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                age INTEGER CHECK(age > 0 AND age < 150),
+                gender VARCHAR(10) CHECK(gender IN ('Male', 'Female', 'Other')),
+                email VARCHAR(100) UNIQUE NOT NULL,
+                phone VARCHAR(20),
+                created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_login TIMESTAMP,
+                is_active BOOLEAN DEFAULT TRUE
+            )
+        ''')
 
         # Create index on email for faster lookups
         self.cursor.execute('''
-                            CREATE INDEX IF NOT EXISTS idx_users_email
-                                ON users(email);
-                            ''')
+            CREATE INDEX IF NOT EXISTS idx_users_email 
+            ON users(email);
+        ''')
 
         # Health metrics table - using JSONB for flexible metric storage
         self.cursor.execute('''
-                            CREATE TABLE IF NOT EXISTS health_metrics
-                            (
-                                metric_id
-                                SERIAL
-                                PRIMARY
-                                KEY,
-                                user_id
-                                INTEGER
-                                REFERENCES
-                                users
-                            (
-                                user_id
-                            ) ON DELETE CASCADE,
-                                metric_type VARCHAR
-                            (
-                                20
-                            ) NOT NULL CHECK
-                            (
-                                metric_type
-                                IN
-                            (
-                                'BP',
-                                'Glucose',
-                                'Weight',
-                                'Exercise',
-                                'Heart_Rate'
-                            )
-                                ),
-
-                                -- Blood Pressure fields
-                                systolic INTEGER CHECK
-                            (
-                                systolic
-                                IS
-                                NULL
-                                OR
-                                systolic
-                                BETWEEN
-                                50
-                                AND
-                                250
-                            ),
-                                diastolic INTEGER CHECK
-                            (
-                                diastolic
-                                IS
-                                NULL
-                                OR
-                                diastolic
-                                BETWEEN
-                                30
-                                AND
-                                150
-                            ),
-
-                                -- Glucose fields
-                                glucose_level DECIMAL
-                            (
-                                5,
-                                2
-                            ) CHECK
-                            (
-                                glucose_level
-                                IS
-                                NULL
-                                OR
-                                glucose_level
-                                BETWEEN
-                                20
-                                AND
-                                600
-                            ),
-                                is_fasting BOOLEAN DEFAULT TRUE,
-
-                                -- Weight fields
-                                weight DECIMAL
-                            (
-                                5,
-                                2
-                            ) CHECK
-                            (
-                                weight
-                                IS
-                                NULL
-                                OR
-                                weight
-                                BETWEEN
-                                20
-                                AND
-                                300
-                            ),
-                                height DECIMAL
-                            (
-                                4,
-                                1
-                            ) CHECK
-                            (
-                                height
-                                IS
-                                NULL
-                                OR
-                                height
-                                BETWEEN
-                                100
-                                AND
-                                250
-                            ),
-
-                                -- Exercise fields
-                                exercise_minutes INTEGER CHECK
-                            (
-                                exercise_minutes
-                                IS
-                                NULL
-                                OR
-                                exercise_minutes
-                                BETWEEN
-                                0
-                                AND
-                                1440
-                            ),
-                                activity_type VARCHAR
-                            (
-                                50
-                            ),
-
-                                -- Heart Rate fields
-                                heart_rate INTEGER CHECK
-                            (
-                                heart_rate
-                                IS
-                                NULL
-                                OR
-                                heart_rate
-                                BETWEEN
-                                30
-                                AND
-                                220
-                            ),
-
-                                -- Common fields
-                                recorded_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                notes TEXT,
-
-                                -- Store all data in JSONB for flexibility
-                                metric_data JSONB,
-
-                                -- Composite check to ensure at least one metric value is provided
-                                CHECK
-                            (
-                            (
-                                systolic
-                                IS
-                                NOT
-                                NULL
-                                AND
-                                diastolic
-                                IS
-                                NOT
-                                NULL
-                            ) OR
-                                glucose_level IS NOT NULL OR
-                                weight IS NOT NULL OR
-                                exercise_minutes IS NOT NULL OR
-                                heart_rate IS NOT NULL
-                                )
-                                )
-                            ''')
+            CREATE TABLE IF NOT EXISTS health_metrics (
+                metric_id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
+                metric_type VARCHAR(20) NOT NULL CHECK(
+                    metric_type IN ('BP', 'Glucose', 'Weight', 'Exercise', 'Heart_Rate')
+                ),
+                
+                -- Blood Pressure fields
+                systolic INTEGER CHECK(systolic IS NULL OR systolic BETWEEN 50 AND 250),
+                diastolic INTEGER CHECK(diastolic IS NULL OR diastolic BETWEEN 30 AND 150),
+                
+                -- Glucose fields
+                glucose_level DECIMAL(5,2) CHECK(glucose_level IS NULL OR glucose_level BETWEEN 20 AND 600),
+                is_fasting BOOLEAN DEFAULT TRUE,
+                
+                -- Weight fields
+                weight DECIMAL(5,2) CHECK(weight IS NULL OR weight BETWEEN 20 AND 300),
+                height DECIMAL(4,1) CHECK(height IS NULL OR height BETWEEN 100 AND 250),
+                
+                -- Exercise fields
+                exercise_minutes INTEGER CHECK(exercise_minutes IS NULL OR exercise_minutes BETWEEN 0 AND 1440),
+                activity_type VARCHAR(50),
+                
+                -- Heart Rate fields
+                heart_rate INTEGER CHECK(heart_rate IS NULL OR heart_rate BETWEEN 30 AND 220),
+                
+                -- Common fields
+                recorded_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                notes TEXT,
+                
+                -- Store all data in JSONB for flexibility
+                metric_data JSONB,
+                
+                -- Composite check to ensure at least one metric value is provided
+                CHECK (
+                    (systolic IS NOT NULL AND diastolic IS NOT NULL) OR
+                    glucose_level IS NOT NULL OR
+                    weight IS NOT NULL OR
+                    exercise_minutes IS NOT NULL OR
+                    heart_rate IS NOT NULL
+                )
+            )
+        ''')
 
         # Create indexes for faster queries
         self.cursor.execute('''
-                            CREATE INDEX IF NOT EXISTS idx_metrics_user_date
-                                ON health_metrics(user_id, recorded_date DESC);
-                            ''')
+            CREATE INDEX IF NOT EXISTS idx_metrics_user_date 
+            ON health_metrics(user_id, recorded_date DESC);
+        ''')
 
         self.cursor.execute('''
-                            CREATE INDEX IF NOT EXISTS idx_metrics_type
-                                ON health_metrics(metric_type);
-                            ''')
+            CREATE INDEX IF NOT EXISTS idx_metrics_type 
+            ON health_metrics(metric_type);
+        ''')
+
+        self.cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_metrics_data 
+            ON health_metrics USING GIN (metric_data);
+        ''')
 
         # Alerts table
         self.cursor.execute('''
-                            CREATE TABLE IF NOT EXISTS alerts
-                            (
-                                alert_id
-                                SERIAL
-                                PRIMARY
-                                KEY,
-                                user_id
-                                INTEGER
-                                REFERENCES
-                                users
-                            (
-                                user_id
-                            ) ON DELETE CASCADE,
-                                alert_type VARCHAR
-                            (
-                                50
-                            ) NOT NULL,
-                                message TEXT NOT NULL,
-                                severity VARCHAR
-                            (
-                                10
-                            ) CHECK
-                            (
-                                severity
-                                IN
-                            (
-                                'Low',
-                                'Medium',
-                                'High',
-                                'Critical'
-                            )),
-                                created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                is_read BOOLEAN DEFAULT FALSE,
-                                resolved BOOLEAN DEFAULT FALSE,
-                                resolved_date TIMESTAMP
-                                )
-                            ''')
+            CREATE TABLE IF NOT EXISTS alerts (
+                alert_id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
+                alert_type VARCHAR(50) NOT NULL,
+                message TEXT NOT NULL,
+                severity VARCHAR(10) CHECK(severity IN ('Low', 'Medium', 'High', 'Critical')),
+                created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_read BOOLEAN DEFAULT FALSE,
+                resolved BOOLEAN DEFAULT FALSE,
+                resolved_date TIMESTAMP
+            )
+        ''')
 
         # Create index for unread alerts
         self.cursor.execute('''
-                            CREATE INDEX IF NOT EXISTS idx_alerts_user_unread
-                                ON alerts(user_id) WHERE NOT is_read;
-                            ''')
+            CREATE INDEX IF NOT EXISTS idx_alerts_user_unread 
+            ON alerts(user_id) WHERE NOT is_read;
+        ''')
 
         # Health goals table
         self.cursor.execute('''
-                            CREATE TABLE IF NOT EXISTS health_goals
-                            (
-                                goal_id
-                                SERIAL
-                                PRIMARY
-                                KEY,
-                                user_id
-                                INTEGER
-                                REFERENCES
-                                users
-                            (
-                                user_id
-                            ) ON DELETE CASCADE,
-                                goal_type VARCHAR
-                            (
-                                50
-                            ) NOT NULL,
-                                target_value DECIMAL
-                            (
-                                10,
-                                2
-                            ),
-                                current_value DECIMAL
-                            (
-                                10,
-                                2
-                            ),
-                                start_date DATE DEFAULT CURRENT_DATE,
-                                end_date DATE,
-                                is_completed BOOLEAN DEFAULT FALSE,
-                                created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                                )
-                            ''')
+            CREATE TABLE IF NOT EXISTS health_goals (
+                goal_id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
+                goal_type VARCHAR(50) NOT NULL,
+                target_value DECIMAL(10,2),
+                current_value DECIMAL(10,2),
+                start_date DATE DEFAULT CURRENT_DATE,
+                end_date DATE,
+                is_completed BOOLEAN DEFAULT FALSE,
+                created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
 
         # Commit table creation
         self.connection.commit()
@@ -400,9 +203,10 @@ class PostgresDBManager:
         """Add a new user to the database"""
         try:
             self.cursor.execute('''
-                                INSERT INTO users (name, age, gender, email, phone)
-                                VALUES (%s, %s, %s, %s, %s) RETURNING user_id
-                                ''', (name, age, gender, email, phone))
+                INSERT INTO users (name, age, gender, email, phone)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING user_id
+            ''', (name, age, gender, email, phone))
 
             user_id = self.cursor.fetchone()[0]
             self.connection.commit()
@@ -421,11 +225,10 @@ class PostgresDBManager:
         """Get user by email"""
         try:
             self.cursor.execute('''
-                                SELECT user_id, name, age, gender, email, phone, created_date
-                                FROM users
-                                WHERE email = %s
-                                  AND is_active = TRUE
-                                ''', (email,))
+                SELECT user_id, name, age, gender, email, phone, created_date
+                FROM users 
+                WHERE email = %s AND is_active = TRUE
+            ''', (email,))
 
             return self.cursor.fetchone()
         except Error as e:
@@ -444,13 +247,15 @@ class PostgresDBManager:
             }
 
             query = sql.SQL('''
-                            INSERT INTO health_metrics
-                            (user_id, metric_type, systolic, diastolic, glucose_level,
-                             is_fasting, weight, height, exercise_minutes, activity_type,
-                             heart_rate, notes, metric_data)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING metric_id
-                            ''')
+                INSERT INTO health_metrics 
+                (user_id, metric_type, systolic, diastolic, glucose_level, 
+                 is_fasting, weight, height, exercise_minutes, activity_type,
+                 heart_rate, notes, metric_data)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING metric_id
+            ''')
 
+            # Use json.dumps instead of psycopg2.extras.Json
             values = (
                 user_id,
                 metric_type,
@@ -464,7 +269,7 @@ class PostgresDBManager:
                 kwargs.get('activity_type'),
                 kwargs.get('heart_rate'),
                 kwargs.get('notes'),
-                psycopg2.extras.Json(metric_data)
+                json.dumps(metric_data)  # Fixed: Use json.dumps
             )
 
             self.cursor.execute(query, values)
@@ -524,31 +329,26 @@ class PostgresDBManager:
         # Add all alerts to database
         for alert in alerts:
             self.cursor.execute('''
-                                INSERT INTO alerts (user_id, alert_type, message, severity)
-                                VALUES (%s, %s, %s, %s)
-                                ''', alert)
+                INSERT INTO alerts (user_id, alert_type, message, severity)
+                VALUES (%s, %s, %s, %s)
+            ''', alert)
 
     def get_user_metrics(self, user_id: int, metric_type: str = None,
-                         limit: int = 100, offset: int = 0) -> List[Tuple]:
+                        limit: int = 100, offset: int = 0) -> List[Tuple]:
         """Retrieve user's health metrics with pagination"""
         try:
             query = '''
-                    SELECT metric_id, \
-                           metric_type, \
-                           systolic, \
-                           diastolic, \
-                           glucose_level, \
-                           is_fasting, \
-                           weight, \
-                           height, \
-                           exercise_minutes, \
-                           activity_type, \
-                           heart_rate, \
-                           recorded_date, \
-                           notes
-                    FROM health_metrics
-                    WHERE user_id = %s \
-                    '''
+                SELECT 
+                    metric_id, metric_type,
+                    systolic, diastolic,
+                    glucose_level, is_fasting,
+                    weight, height,
+                    exercise_minutes, activity_type,
+                    heart_rate,
+                    recorded_date, notes
+                FROM health_metrics 
+                WHERE user_id = %s
+            '''
 
             params = [user_id]
 
@@ -573,14 +373,14 @@ class PostgresDBManager:
 
             # Get average BP
             self.cursor.execute('''
-                                SELECT AVG(systolic)  as avg_systolic,
-                                       AVG(diastolic) as avg_diastolic,
-                                       COUNT(*)       as bp_count
-                                FROM health_metrics
-                                WHERE user_id = %s
-                                  AND metric_type = 'BP'
-                                  AND recorded_date >= CURRENT_DATE - INTERVAL '30 days'
-                                ''', (user_id,))
+                SELECT 
+                    AVG(systolic) as avg_systolic,
+                    AVG(diastolic) as avg_diastolic,
+                    COUNT(*) as bp_count
+                FROM health_metrics 
+                WHERE user_id = %s AND metric_type = 'BP'
+                AND recorded_date >= CURRENT_DATE - INTERVAL '30 days'
+            ''', (user_id,))
 
             bp_stats = self.cursor.fetchone()
             stats['blood_pressure'] = {
@@ -591,13 +391,13 @@ class PostgresDBManager:
 
             # Get glucose stats
             self.cursor.execute('''
-                                SELECT AVG(glucose_level) as avg_glucose,
-                                       COUNT(*)           as glucose_count
-                                FROM health_metrics
-                                WHERE user_id = %s
-                                  AND metric_type = 'Glucose'
-                                  AND recorded_date >= CURRENT_DATE - INTERVAL '30 days'
-                                ''', (user_id,))
+                SELECT 
+                    AVG(glucose_level) as avg_glucose,
+                    COUNT(*) as glucose_count
+                FROM health_metrics 
+                WHERE user_id = %s AND metric_type = 'Glucose'
+                AND recorded_date >= CURRENT_DATE - INTERVAL '30 days'
+            ''', (user_id,))
 
             glucose_stats = self.cursor.fetchone()
             stats['glucose'] = {
@@ -607,13 +407,13 @@ class PostgresDBManager:
 
             # Get exercise stats
             self.cursor.execute('''
-                                SELECT SUM(exercise_minutes) as total_exercise,
-                                       COUNT(*)              as exercise_days
-                                FROM health_metrics
-                                WHERE user_id = %s
-                                  AND metric_type = 'Exercise'
-                                  AND recorded_date >= CURRENT_DATE - INTERVAL '30 days'
-                                ''', (user_id,))
+                SELECT 
+                    SUM(exercise_minutes) as total_exercise,
+                    COUNT(*) as exercise_days
+                FROM health_metrics 
+                WHERE user_id = %s AND metric_type = 'Exercise'
+                AND recorded_date >= CURRENT_DATE - INTERVAL '30 days'
+            ''', (user_id,))
 
             exercise_stats = self.cursor.fetchone()
             stats['exercise'] = {
@@ -623,11 +423,10 @@ class PostgresDBManager:
 
             # Get unread alerts count
             self.cursor.execute('''
-                                SELECT COUNT(*)
-                                FROM alerts
-                                WHERE user_id = %s
-                                  AND NOT is_read
-                                ''', (user_id,))
+                SELECT COUNT(*) 
+                FROM alerts 
+                WHERE user_id = %s AND NOT is_read
+            ''', (user_id,))
 
             stats['unread_alerts'] = self.cursor.fetchone()[0]
 
