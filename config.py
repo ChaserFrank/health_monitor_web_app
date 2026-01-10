@@ -1,5 +1,5 @@
 """
-Configuration file for PostgreSQL database settings
+Configuration file for the PostgreSQL database settings
 """
 import os
 from dotenv import load_dotenv

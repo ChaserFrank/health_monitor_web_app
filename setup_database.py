@@ -67,7 +67,7 @@ def setup_database():
         else:
             print("No statistics available yet.")
 
-        # Show user metrics
+        # Show all user metrics
         print("\n📋 Sample User Metrics:")
         user_metrics = db.get_user_metrics(user_id, limit=5)
 

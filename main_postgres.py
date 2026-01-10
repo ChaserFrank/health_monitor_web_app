@@ -37,7 +37,7 @@ def main():
 
 
 if __name__ == "__main__":
-    # Check for required packages
+    # Checking for required packages
     try:
         import psycopg2
         import colorama

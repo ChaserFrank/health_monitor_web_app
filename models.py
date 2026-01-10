@@ -1195,7 +1195,7 @@ class HealthMetricFactory:
 class HealthMonitor:
     """
     Singleton class for managing health monitoring system
-    Demonstrates: Singleton Pattern, System Management
+    Demonstrates:Singleton Pattern, System Management
     """
     _instance = None
 
@@ -1231,7 +1231,7 @@ class HealthMonitor:
         return all_alerts
 
     def get_critical_alerts(self) -> List[Alert]:
-        """Get all critical alerts"""
+        """Get all critical alerts (low or high)"""
         return [alert for alert in self.get_all_alerts()
                 if alert.severity in [Severity.CRITICAL, Severity.HIGH]]
 
