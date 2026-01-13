@@ -1,23 +1,46 @@
 """
-Configuration file for the PostgreSQL database settings
+Configuration for Flask Web Application
 """
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
-DB_CONFIG = {
-    'host': os.getenv('DB_HOST', 'localhost'),
-    'database': os.getenv('DB_NAME', 'health_monitor_db'),
-    'user': os.getenv('DB_USER', 'postgres'),
-    'password': os.getenv('DB_PASSWORD', 'password'),
-    'port': os.getenv('DB_PORT', '5432')
-}
+class Config:
+    """Base configuration"""
+    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL',
+        f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@"
+        f"{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}")
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-# You can also add other configurations
-APP_CONFIG = {
-    'debug': os.getenv('DEBUG', 'True').lower() == 'true',
-    'secret_key': os.getenv('SECRET_KEY', 'your-secret-key-here'),
-    'session_timeout': int(os.getenv('SESSION_TIMEOUT', '3600'))
+    # Session configuration
+    SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'False').lower() == 'true'
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+
+    # Upload configuration
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
+
+    # App specific
+    APP_NAME = "Health Monitor Pro"
+    VERSION = "1.0.0"
+
+class DevelopmentConfig(Config):
+    """Development configuration"""
+    DEBUG = True
+    TESTING = False
+
+class ProductionConfig(Config):
+    """Production configuration"""
+    DEBUG = False
+    TESTING = False
+    SESSION_COOKIE_SECURE = True
+
+# Configuration dictionary
+config = {
+    'development': DevelopmentConfig,
+    'production': ProductionConfig,
+    'default': DevelopmentConfig
 }
