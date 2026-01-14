@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Health Metrics - Health Monitor Pro{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2><i class="bi bi-clipboard-data text-primary"></i> Health Metrics</h2>
+        <p class="text-muted">View and manage your health measurements.</p>
+    </div>
+    <div class="col-auto">
+        <a href="{{ url_for('add_metric') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Add New
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card shadow mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('view_metrics') }}" class="row g-3">
+            <div class="col-md-4">
+                <label for="type" class="form-label">Filter by Type</label>
+                <select class="form-select" id="type" name="type" onchange="this.form.submit()">
+                    <option value="">All Types</option>
+                    <option value="BP" {% if metric_type == 'BP' %}selected{% endif %}>Blood Pressure</option>
+                    <option value="Glucose" {% if metric_type == 'Glucose' %}selected{% endif %}>Glucose</option>
+                    <option value="Weight" {% if metric_type == 'Weight' %}selected{% endif %}>Weight</option>
+                    <option value="Exercise" {% if metric_type == 'Exercise' %}selected{% endif %}>Exercise</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="sort" class="form-label">Sort By</label>
+                <select class="form-select" id="sort" name="sort">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-filter"></i> Apply Filters
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Metrics List -->
+<div class="card shadow">
+    <div class="card-header bg-secondary text-white">
+        <h5 class="mb-0">
+            <i class="bi bi-list-check"></i>
+            {% if metric_type %}
+                {{ metric_type }} Metrics
+            {% else %}
+                All Health Metrics
+            {% endif %}
+            <span class="badge bg-light text-dark ms-2">{{ metrics|length }}</span>
+        </h5>

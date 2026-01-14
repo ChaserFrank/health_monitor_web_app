@@ -1,0 +1,353 @@
+{% extends "base.html" %}
+
+{% block title %}Add Health Metric - Health Monitor Pro{% endblock %}
+
+{% block extra_css %}
+<style>
+.measurement-icon {
+    font-size: 2rem;
+}
+.metric-card {
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.metric-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+.form-section {
+    display: none;
+}
+.form-section.active {
+    display: block;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2><i class="bi bi-plus-circle text-primary"></i> Add Health Metric</h2>
+        <p class="text-muted">Select a metric type and enter your readings.</p>
+    </div>
+</div>
+
+<!-- Metric Type Selection -->
+<div class="row mb-4" id="metricSelection">
+    <div class="col-12 mb-3">
+        <h5>Select Metric Type</h5>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card metric-card text-center" data-metric="BP">
+            <div class="card-body">
+                <i class="bi bi-heart-pulse measurement-icon text-danger"></i>
+                <h5 class="card-title mt-2">Blood Pressure</h5>
+                <p class="card-text small text-muted">Systolic/Diastolic</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card metric-card text-center" data-metric="Glucose">
+            <div class="card-body">
+                <i class="bi bi-droplet measurement-icon text-success"></i>
+                <h5 class="card-title mt-2">Glucose</h5>
+                <p class="card-text small text-muted">Blood sugar level</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card metric-card text-center" data-metric="Weight">
+            <div class="card-body">
+                <i class="bi bi-scale measurement-icon text-info"></i>
+                <h5 class="card-title mt-2">Weight</h5>
+                <p class="card-text small text-muted">Weight & BMI</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card metric-card text-center" data-metric="Exercise">
+            <div class="card-body">
+                <i class="bi bi-activity measurement-icon text-warning"></i>
+                <h5 class="card-title mt-2">Exercise</h5>
+                <p class="card-text small text-muted">Activity tracking</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Forms -->
+<div id="metricForms">
+    <!-- Blood Pressure Form -->
+    <div class="card shadow form-section" id="BPForm">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0"><i class="bi bi-heart-pulse"></i> Blood Pressure Reading</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('add_metric') }}">
+                <input type="hidden" name="metric_type" value="BP">
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="systolic" class="form-label">Systolic (Upper)</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="systolic" name="systolic" 
+                                   min="50" max="250" value="120" required>
+                            <span class="input-group-text">mmHg</span>
+                        </div>
+                        <div class="form-text">
+                            Normal range: 90-120 mmHg
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="diastolic" class="form-label">Diastolic (Lower)</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="diastolic" name="diastolic" 
+                                   min="30" max="150" value="80" required>
+                            <span class="input-group-text">mmHg</span>
+                        </div>
+                        <div class="form-text">
+                            Normal range: 60-80 mmHg
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="bp_notes" class="form-label">Notes (Optional)</label>
+                    <textarea class="form-control" id="bp_notes" name="notes" 
+                              rows="2" placeholder="e.g., Morning reading, after exercise..."></textarea>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary back-to-selection">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-save"></i> Save Reading
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Glucose Form -->
+    <div class="card shadow form-section" id="GlucoseForm">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="bi bi-droplet"></i> Glucose Reading</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('add_metric') }}">
+                <input type="hidden" name="metric_type" value="Glucose">
+                
+                <div class="mb-3">
+                    <label for="glucose" class="form-label">Glucose Level</label>
+                    <div class="input-group">
+                        <input type="number" step="0.1" class="form-control" id="glucose" 
+                               name="glucose" min="20" max="600" value="95.5" required>
+                        <span class="input-group-text">mg/dL</span>
+                    </div>
+                    <div class="form-text">
+                        Normal fasting: 70-100 mg/dL
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Measurement Type</label>
+                    <div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="is_fasting" 
+                                   id="fasting_true" value="true" checked>
+                            <label class="form-check-label" for="fasting_true">
+                                Fasting (8+ hours no food)
+                            </label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="is_fasting" 
+                                   id="fasting_false" value="false">
+                            <label class="form-check-label" for="fasting_false">
+                                Non-fasting
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="glucose_notes" class="form-label">Notes (Optional)</label>
+                    <textarea class="form-control" id="glucose_notes" name="notes" 
+                              rows="2" placeholder="e.g., Before breakfast, after workout..."></textarea>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary back-to-selection">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-save"></i> Save Reading
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Weight Form -->
+    <div class="card shadow form-section" id="WeightForm">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="bi bi-scale"></i> Weight & BMI</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('add_metric') }}">
+                <input type="hidden" name="metric_type" value="Weight">
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="weight" class="form-label">Weight</label>
+                        <div class="input-group">
+                            <input type="number" step="0.1" class="form-control" id="weight" 
+                                   name="weight" min="20" max="300" value="75.5" required>
+                            <span class="input-group-text">kg</span>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="height" class="form-label">Height</label>
+                        <div class="input-group">
+                            <input type="number" step="0.1" class="form-control" id="height" 
+                                   name="height" min="100" max="250" value="175" required>
+                            <span class="input-group-text">cm</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="alert alert-secondary">
+                        <h6 class="mb-1">BMI Calculation</h6>
+                        <p class="mb-0" id="bmiResult">Enter values to calculate BMI</p>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="weight_notes" class="form-label">Notes (Optional)</label>
+                    <textarea class="form-control" id="weight_notes" name="notes" 
+                              rows="2" placeholder="e.g., Morning weight, after exercise..."></textarea>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary back-to-selection">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </button>
+                    <button type="submit" class="btn btn-info">
+                        <i class="bi bi-save"></i> Save Reading
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Exercise Form -->
+    <div class="card shadow form-section" id="ExerciseForm">
+        <div class="card-header bg-warning text-white">
+            <h5 class="mb-0"><i class="bi bi-activity"></i> Exercise Log</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('add_metric') }}">
+                <input type="hidden" name="metric_type" value="Exercise">
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="minutes" class="form-label">Duration</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="minutes" name="minutes" 
+                                   min="1" max="1440" value="30" required>
+                            <span class="input-group-text">minutes</span>
+                        </div>
+                        <div class="form-text">
+                            Recommended: 30+ minutes daily
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="activity" class="form-label">Activity Type</label>
+                        <select class="form-select" id="activity" name="activity" required>
+                            <option value="Walking">Walking</option>
+                            <option value="Running">Running</option>
+                            <option value="Cycling">Cycling</option>
+                            <option value="Swimming">Swimming</option>
+                            <option value="Yoga">Yoga</option>
+                            <option value="Weight Training">Weight Training</option>
+                            <option value="HIIT">HIIT</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="exercise_notes" class="form-label">Notes (Optional)</label>
+                    <textarea class="form-control" id="exercise_notes" name="notes" 
+                              rows="2" placeholder="e.g., Morning workout, felt good..."></textarea>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary back-to-selection">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-save"></i> Save Exercise
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Metric selection
+document.querySelectorAll('.metric-card').forEach(card => {
+    card.addEventListener('click', function() {
+        const metricType = this.dataset.metric;
+        document.getElementById('metricSelection').style.display = 'none';
+        document.querySelectorAll('.form-section').forEach(section => {
+            section.classList.remove('active');
+        });
+        document.getElementById(metricType + 'Form').classList.add('active');
+    });
+});
+
+// Back to selection
+document.querySelectorAll('.back-to-selection').forEach(button => {
+    button.addEventListener('click', function() {
+        document.getElementById('metricSelection').style.display = 'block';
+        document.querySelectorAll('.form-section').forEach(section => {
+            section.classList.remove('active');
+        });
+    });
+});
+
+// BMI calculation
+function calculateBMI() {
+    const weight = parseFloat(document.getElementById('weight').value);
+    const height = parseFloat(document.getElementById('height').value);
+    
+    if (weight && height) {
+        const heightM = height / 100;
+        const bmi = weight / (heightM * heightM);
+        let category = '';
+        
+        if (bmi < 18.5) category = 'Underweight';
+        else if (bmi < 25) category = 'Normal';
+        else if (bmi < 30) category = 'Overweight';
+        else category = 'Obese';
+        
+        document.getElementById('bmiResult').innerHTML = 
+            `<strong>BMI: ${bmi.toFixed(1)}</strong> - ${category}`;
+    }
+}
+
+document.getElementById('weight').addEventListener('input', calculateBMI);
+document.getElementById('height').addEventListener('input', calculateBMI);
+calculateBMI(); // Initial calculation
+</script>
+{% endblock %}
