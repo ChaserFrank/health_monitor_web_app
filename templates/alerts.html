@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+
+{% block title %}Alerts - Health Monitor Pro{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2><i class="bi bi-bell text-warning"></i> Health Alerts</h2>
+        <p class="text-muted">Notifications about your health metrics requiring attention.</p>
+    </div>
+    <div class="col-auto">
+        {% if alerts|length > 0 %}
+        <form method="POST" action="{{ url_for('mark_all_alerts_read') }}" class="d-inline">
+            <button type="submit" class="btn btn-outline-success">
+                <i class="bi bi-check-all"></i> Mark All Read
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Alert Filters -->
+<div class="card shadow mb-4">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="showCritical" checked>
+                    <label class="form-check-label text-danger" for="showCritical">
+                        <i class="bi bi-exclamation-triangle"></i> Critical
+                    </label>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="showHigh" checked>
+                    <label class="form-check-label text-warning" for="showHigh">
+                        <i class="bi bi-exclamation-circle"></i> High
+                    </label>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="showMedium" checked>
+                    <label class="form-check-label text-info" for="showMedium">
+                        <i class="bi bi-info-circle"></i> Medium
+                    </label>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="showLow" checked>
+                    <label class="form-check-label text-secondary" for="showLow">
+                        <i class="bi bi-info"></i> Low
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alerts List -->
+<div class="card shadow">
+    <div class="card-header bg-warning text-white">
+        <h5 class="mb-0">
+            <i class="bi bi-bell"></i> Notifications
+            <span class="badge bg-light text-dark ms-2">{{ alerts|length }}</span>
+        </h5>
+    </div>
+    <div class="card-body p-0">
+        {% if alerts %}
+        <div class="list-group list-group-flush">
+            {% for alert in alerts %}
+            <div class="list-group-item list-group-item-action 
+                {% if alert.severity == 'Critical' %}list-group-item-danger{% endif %}
+                {% if alert.severity == 'High' %}list-group-item-warning{% endif %}
+                {% if alert.severity == 'Medium' %}list-group-item-info{% endif %}
+                {% if alert.severity == 'Low' %}list-group-item-secondary{% endif %}
+                alert-item" data-severity="{{ alert.severity }}">
+                <div class="d-flex w-100 justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-{{ alert.icon }} fs-4 me-3"></i>
+                        <div>
+                            <h6 class="mb-1">{{ alert.type }}</h6>
+                            <p class="mb-1">{{ alert.message }}</p>
+                            <small class="text-muted">
+                                <i class="bi bi-clock"></i> {{ alert.date.strftime('%Y-%m-%d %H:%M') }}
+                                {% if alert.is_read %}
+                                <span class="badge bg-success ms-2">
+                                    <i class="bi bi-check"></i> Read
+                                </span>
+                                {% else %}
+                                <span class="badge bg-warning ms-2">
+                                    <i class="bi bi-exclamation"></i> Unread
+                                </span>
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                    <div class="btn-group">
+                        {% if not alert.is_read %}
+                        <form method="POST" action="{{ url_for('mark_alert_read', alert_id=alert.id) }}" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-success">
+                                <i class="bi bi-check"></i> Mark Read
+                            </button>
+                        </form>
+                        {% endif %}
+                        <button class="btn btn-sm btn-outline-danger" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#deleteAlertModal{{ alert.id }}">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Delete Modal -->
+            <div class="modal fade" id="deleteAlertModal{{ alert.id }}" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Delete Alert</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Are you sure you want to delete this alert?</p>
+                            <div class="alert alert-{{ alert.severity|lower }}">
+                                <strong>{{ alert.type }}</strong><br>
+                                {{ alert.message }}
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <form method="POST" action="{{ url_for('delete_alert', alert_id=alert.id) }}" class="d-inline">
+                                <button type="submit" class="btn btn-danger">Delete Alert</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-bell-slash display-1 text-muted"></i>
+            <h4 class="mt-3">No Alerts</h4>
+            <p class="text-muted">Your health metrics are all within normal ranges. Great job!</p>
+            <div class="mt-4">
+                <div class="alert alert-success w-75 mx-auto">
+                    <i class="bi bi-check-circle"></i>
+                    <strong>All Clear!</strong> Continue monitoring your health regularly.
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% if alerts %}
+    <div class="card-footer text-muted">
+        <div class="row">
+            <div class="col">
+                Showing {{ alerts|length }} alerts
+            </div>
+            <div class="col-auto">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="showReadAlerts" checked>
+                    <label class="form-check-label" for="showReadAlerts">
+                        Show read alerts
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Alert Statistics -->
+{% if alerts %}
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0"><i class="bi bi-pie-chart"></i> Alert Distribution</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="alertChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h6 class="mb-0"><i class="bi bi-calendar-check"></i> Recent Activity</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Total Alerts</span>
+                        <span class="badge bg-primary">{{ alerts|length }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Unread Alerts</span>
+                        <span class="badge bg-warning">{{ alerts|selectattr('is_read', 'equalto', false)|list|length }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Critical Alerts</span>
+                        <span class="badge bg-danger">{{ alerts|selectattr('severity', 'equalto', 'Critical')|list|length }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Today's Alerts</span>
+                        <span class="badge bg-info">{{ alerts|selectattr('date', 'today')|list|length }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Filter alerts by severity
+function filterAlerts() {
+    const severities = ['Critical', 'High', 'Medium', 'Low'];
+    severities.forEach(severity => {
+        const checkbox = document.getElementById('show' + severity);
+        const alerts = document.querySelectorAll(`.alert-item[data-severity="${severity}"]`);
+        alerts.forEach(alert => {
+            alert.style.display = checkbox.checked ? 'block' : 'none';
+        });
+    });
+}
+
+// Initialize filter checkboxes
+['Critical', 'High', 'Medium', 'Low'].forEach(severity => {
+    document.getElementById('show' + severity).addEventListener('change', filterAlerts);
+});
+
+// Toggle read alerts
+document.getElementById('showReadAlerts').addEventListener('change', function() {
+    const readAlerts = document.querySelectorAll('.list-group-item .badge.bg-success');
+    readAlerts.forEach(badge => {
+        const alertItem = badge.closest('.list-group-item');
+        alertItem.style.display = this.checked ? 'block' : 'none';
+    });
+});
+
+// Create alert distribution chart
+{% if alerts %}
+const ctx = document.getElementById('alertChart').getContext('2d');
+const severityCounts = {
+    Critical: {{ alerts|selectattr('severity', 'equalto', 'Critical')|list|length }},
+    High: {{ alerts|selectattr('severity', 'equalto', 'High')|list|length }},
+    Medium: {{ alerts|selectattr('severity', 'equalto', 'Medium')|list|length }},
+    Low: {{ alerts|selectattr('severity', 'equalto', 'Low')|list|length }}
+};
+
+new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        labels: Object.keys(severityCounts),
+        datasets: [{
+            data: Object.values(severityCounts),
+            backgroundColor: [
+                '#dc3545', // Critical - red
+                '#ffc107', // High - yellow
+                '#0dcaf0', // Medium - cyan
+                '#6c757d'  // Low - gray
+            ],
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

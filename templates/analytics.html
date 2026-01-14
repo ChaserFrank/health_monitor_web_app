@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Health Analytics - Health Monitor Pro{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.plot.ly/plotly-latest.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2><i class="bi bi-graph-up text-primary"></i> Health Analytics</h2>
+        <p class="text-muted">Visual insights and trends from your health data.</p>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h6 class="card-title">Average Blood Pressure</h6>
+                <h3 class="mb-0">
+                    {% if stats.blood_pressure.avg_systolic and stats.blood_pressure.avg_diastolic %}
+                        {{ stats.blood_pressure.avg_systolic|round|int }}/{{ stats.blood_pressure.avg_diastolic|round|int }}
+                    {% else %}
+                        --
+                    {% endif %}
+                </h3>
+                <small class="opacity-75">Last 30 days</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h6 class="card-title">Average Glucose</h6>
+                <h3 class="mb-0">
+                    {% if stats.glucose.avg_level %}
+                        {{ stats.glucose.avg_level|round|int }} mg/dL
+                    {% else %}
+                        --
+                    {% endif %}
+                </h3>
+                <small class="opacity-75">Last 30 days</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <h6 class="card-title">Exercise Progress</h6>
+                <h3 class="mb-0">
+                    {% if stats.exercise.total_minutes %}
+                        {{ stats.exercise.total_minutes|round|int }} min
+                    {% else %}
+                        0 min
+                    {% endif %}
+                </h3>
+                <small class="opacity-75">Total this month</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Charts Column -->
+    <div class="col-lg-8">
+        <!-- Blood Pressure Chart -->
+        {% if charts.bp %}
+        <div class="card shadow mb-4">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="bi bi-heart-pulse"></i> Blood Pressure Trends</h5>
+            </div>
+            <div class="card-body">
+                <div id="bpChart" style="height: 400px;"></div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Glucose Chart -->
+        {% if charts.glucose %}
+        <div class="card shadow mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-droplet"></i> Glucose Level Trends</h5>
+            </div>
+            <div class="card-body">
+                <div id="glucoseChart" style="height: 400px;"></div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- No Data Message -->
+        {% if not charts %}
+        <div class="card shadow">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-graph-up display-1 text-muted"></i>
+                <h4 class="mt-3">No Analytics Data Yet</h4>
+                <p class="text-muted">Start recording health metrics to see visual analytics and trends.</p>
+                <a href="{{ url_for('add_metric') }}" class="btn btn-primary mt-3">
+                    <i class="bi bi-plus-circle"></i> Add First Metric
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Health Score -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-warning text-white">
+                <h5 class="mb-0"><i class="bi bi-award"></i> Health Score</h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="progress-circle" data-percent="75" style="width: 150px; height: 150px; margin: 0 auto;">
+                    <svg viewBox="0 0 36 36">
+                        <path d="M18 2.0845
+                            a 15.9155 15.9155 0 0 1 0 31.831
+                            a 15.9155 15.9155 0 0 1 0 -31.831"
+                            fill="none" stroke="#eee" stroke-width="3"/>
+                        <path d="M18 2.0845
+                            a 15.9155 15.9155 0 0 1 0 31.831
+                            a 15.9155 15.9155 0 0 1 0 -31.831"
+                            fill="none" stroke="#4caf50" stroke-width="3" stroke-dasharray="75, 100"/>
+                    </svg>
+                    <span class="progress-circle-text">75%</span>
+                </div>
+                <h5 class="mt-3">Good Health</h5>
+                <p class="text-muted">Based on your recent metrics and trends</p>
+            </div>
+        </div>
+        
+        <!-- Health Insights -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="bi bi-lightbulb"></i> Health Insights</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-success">
+                    <h6><i class="bi bi-check-circle"></i> Consistent Exercise</h6>
+                    <p class="small mb-0">You've maintained good exercise habits this month.</p>
+                </div>
+                <div class="alert alert-info">
+                    <h6><i class="bi bi-info-circle"></i> Blood Pressure Trend</h6>
+                    <p class="small mb-0">Your BP readings show stable patterns.</p>
+                </div>
+                <div class="alert alert-warning">
+                    <h6><i class="bi bi-exclamation-triangle"></i> Glucose Monitoring</h6>
+                    <p class="small mb-0">Consider more frequent glucose checks.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Time Range Selector -->
+        <div class="card shadow">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="bi bi-calendar-range"></i> Time Range</h5>
+            </div>
+            <div class="card-body">
+                <div class="btn-group-vertical w-100" role="group">
+                    <button type="button" class="btn btn-outline-primary text-start">
+                        <i class="bi bi-calendar-week"></i> Last 7 Days
+                    </button>
+                    <button type="button" class="btn btn-primary text-start">
+                        <i class="bi bi-calendar-month"></i> Last 30 Days
+                    </button>
+                    <button type="button" class="btn btn-outline-primary text-start">
+                        <i class="bi bi-calendar3"></i> Last 90 Days
+                    </button>
+                    <button type="button" class="btn btn-outline-primary text-start">
+                        <i class="bi bi-calendar-check"></i> All Time
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.progress-circle {
+    position: relative;
+    display: inline-block;
+}
+.progress-circle svg {
+    transform: rotate(-90deg);
+}
+.progress-circle-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #333;
+}
+</style>
+
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>
+// Load charts
+{% if charts.bp %}
+var bpData = JSON.parse('{{ charts.bp|safe }}');
+Plotly.newPlot('bpChart', bpData.data, bpData.layout);
+{% endif %}
+
+{% if charts.glucose %}
+var glucoseData = JSON.parse('{{ charts.glucose|safe }}');
+Plotly.newPlot('glucoseChart', glucoseData.data, glucoseData.layout);
+{% endif %}
+</script>
+{% endblock %}
