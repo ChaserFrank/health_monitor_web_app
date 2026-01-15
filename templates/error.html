@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Error {{ error_code }} - Health Monitor Pro{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <!-- Error Icon -->
+            <div class="mb-4">
+                {% if error_code == 404 %}
+                <i class="bi bi-exclamation-triangle display-1 text-warning"></i>
+                {% elif error_code == 500 %}
+                <i class="bi bi-exclamation-octagon display-1 text-danger"></i>
+                {% elif error_code == 403 %}
+                <i class="bi bi-shield-exclamation display-1 text-danger"></i>
+                {% elif error_code == 401 %}
+                <i class="bi bi-lock display-1 text-warning"></i>
+                {% else %}
+                <i class="bi bi-exclamation-diamond display-1 text-secondary"></i>
+                {% endif %}
+            </div>
+            
+            <!-- Error Message -->
+            <h1 class="display-4 fw-bold mb-3">Error {{ error_code }}</h1>
+            
+            <div class="card shadow mb-4">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">{{ error_message }}</h5>
+                    
+                    {% if error_code == 404 %}
+                    <p class="card-text">
+                        The page you're looking for doesn't exist or has been moved.
+                    </p>
+                    {% elif error_code == 500 %}
+                    <p class="card-text">
+                        Something went wrong on our end. Our team has been notified.
+                    </p>
+                    {% elif error_code == 403 %}
+                    <p class="card-text">
+                        You don't have permission to access this page.
+                    </p>
+                    {% elif error_code == 401 %}
+                    <p class="card-text">
+                        Please log in to access this page.
+                    </p>
+                    {% else %}
+                    <p class="card-text">
+                        An unexpected error occurred.
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Error Details (for debugging) -->
+            {% if error and app.debug %}
+            <div class="card shadow mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h6 class="mb-0">Debug Information</h6>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-light p-3 rounded"><code>{{ error }}</code></pre>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Action Buttons -->
+            <div class="d-grid gap-2 d-md-flex justify-content-center">
+                <a href="{{ url_for('dashboard') if current_user.is_authenticated else url_for('index') }}" 
+                   class="btn btn-primary btn-lg">
+                    <i class="bi bi-house"></i> Go to Dashboard
+                </a>
+                
+                {% if error_code == 401 %}
+                <a href="{{ url_for('login') }}" class="btn btn-success btn-lg">
+                    <i class="bi bi-box-arrow-in-right"></i> Login
+                </a>
+                {% endif %}
+                
+                <a href="javascript:history.back()" class="btn btn-outline-secondary btn-lg">
+                    <i class="bi bi-arrow-left"></i> Go Back
+                </a>
+            </div>
+            
+            <!-- Support Information -->
+            <div class="mt-5">
+                <p class="text-muted">
+                    Need help? 
+                    <a href="mailto:support@healthmonitorpro.com" class="text-decoration-none">
+                        Contact Support
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.error-icon {
+    animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+pre {
+    max-height: 300px;
+    overflow-y: auto;
+}
+</style>
+{% endblock %}

@@ -582,6 +582,107 @@ def mark_alert_read(alert_id):
     return redirect(url_for('alerts'))
 
 
+@app.route('/delete_alert/<int:alert_id>', methods=['POST'])
+@login_required
+def delete_alert(alert_id):
+    """Delete an alert"""
+    try:
+        db_manager.cursor.execute(
+            "DELETE FROM alerts WHERE alert_id = %s AND user_id = %s",
+            (alert_id, current_user.user_id)
+        )
+        db_manager.connection.commit()
+        flash('Alert deleted successfully', 'success')
+    except Exception as e:
+        flash(f'Error: {str(e)}', 'error')
+
+    return redirect(url_for('alerts'))
+
+
+@app.route('/export_data/<format>')
+@login_required
+def export_data(format):
+    """Export user data in specified format"""
+    if format not in ['csv', 'json']:
+        flash('Invalid export format', 'error')
+        return redirect(url_for('profile'))
+
+    # Get user metrics
+    metrics = db_manager.get_user_metrics(current_user.user_id, limit=1000)
+
+    # Format data for export
+    export_data = {
+        'user': {
+            'name': current_user.name,
+            'email': current_user.email,
+            'age': current_user.age,
+            'gender': current_user.gender
+        },
+        'export_date': datetime.now().isoformat(),
+        'metrics': []
+    }
+
+    for metric in metrics:
+        metric_id, mtype, sys, dia, gluc, fasting, wgt, ht, ex_min, act, hr, date, notes = metric
+        metric_data = {
+            'type': mtype,
+            'date': date.isoformat() if date else None,
+            'notes': notes
+        }
+
+        if mtype == "BP" and sys and dia:
+            metric_data['systolic'] = sys
+            metric_data['diastolic'] = dia
+        elif mtype == "Glucose" and gluc:
+            metric_data['glucose'] = float(gluc)
+            metric_data['is_fasting'] = fasting
+        elif mtype == "Weight" and wgt:
+            metric_data['weight'] = float(wgt)
+            metric_data['height'] = float(ht) if ht else None
+        elif mtype == "Exercise" and ex_min:
+            metric_data['minutes'] = ex_min
+            metric_data['activity'] = act
+
+        export_data['metrics'].append(metric_data)
+
+    if format == 'json':
+        response = jsonify(export_data)
+        response.headers[
+            'Content-Disposition'] = f'attachment; filename=health_data_{datetime.now().strftime("%Y%m%d")}.json'
+        return response
+
+    elif format == 'csv':
+        import csv
+        from io import StringIO
+
+        # Create CSV
+        si = StringIO()
+        writer = csv.writer(si)
+
+        # Write header
+        writer.writerow(['Type', 'Date', 'Value1', 'Value2', 'Value3', 'Notes'])
+
+        # Write data
+        for metric in export_data['metrics']:
+            row = [
+                metric['type'],
+                metric['date'],
+                metric.get('systolic', metric.get('glucose', metric.get('weight', metric.get('minutes', '')))),
+                metric.get('diastolic', metric.get('is_fasting', metric.get('height', metric.get('activity', '')))),
+                '',
+                metric['notes']
+            ]
+            writer.writerow(row)
+
+        response = app.response_class(
+            response=si.getvalue(),
+            status=200,
+            mimetype='text/csv',
+            headers={'Content-Disposition': f'attachment; filename=health_data_{datetime.now().strftime("%Y%m%d")}.csv'}
+        )
+        return response
+
+
 @app.route('/profile')
 @login_required
 def profile():

@@ -13,7 +13,6 @@ from app import app, db_manager, WebUser
 from flask import url_for, session
 import json
 
-
 class TestWebApplication(unittest.TestCase):
     """Test web application routes and functionality"""
 
@@ -66,7 +65,6 @@ class TestWebApplication(unittest.TestCase):
         response = self.app.get('/nonexistent-page')
         self.assertEqual(response.status_code, 404)
         self.assertIn(b'Page not found', response.data)
-
 
 class TestUserAuthentication(unittest.TestCase):
     """Test user authentication flows"""
@@ -137,7 +135,6 @@ class TestUserAuthentication(unittest.TestCase):
             # Then logout
             response = client.get('/logout', follow_redirects=True)
             self.assertIn(b'Login', response.data)
-
 
 class TestHealthMetricsWorkflow(unittest.TestCase):
     """Test complete health metrics workflow"""
@@ -218,7 +215,6 @@ class TestHealthMetricsWorkflow(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertIn(b'User Profile', response.data)
 
-
 class TestAPIFunctionality(unittest.TestCase):
     """Test API endpoints"""
 
@@ -269,21 +265,20 @@ class TestAPIFunctionality(unittest.TestCase):
         """Test API endpoint to add metric"""
         with self.app as client:
             response = client.post('/api/add_metric',
-                                   json={
-                                       'type': 'BP',
-                                       'systolic': 120,
-                                       'diastolic': 80,
-                                       'notes': 'API test'
-                                   },
-                                   content_type='application/json'
-                                   )
+                json={
+                    'type': 'BP',
+                    'systolic': 120,
+                    'diastolic': 80,
+                    'notes': 'API test'
+                },
+                content_type='application/json'
+            )
 
             self.assertEqual(response.status_code, 200)
 
             data = json.loads(response.data)
             self.assertTrue(data['success'])
             self.assertIn('metric_id', data)
-
 
 class TestErrorHandling(unittest.TestCase):
     """Test error handling in web application"""
@@ -297,4 +292,34 @@ class TestErrorHandling(unittest.TestCase):
                 user_id = db_manager.add_user(
                     name="Error User",
                     age=30,
-                    gender="
+                    gender="Male",
+                    email="error@example.com"
+                )
+                db_manager.connection.commit()
+
+            client.post('/login', data={
+                'email': 'error@example.com',
+                'password': 'anypassword'
+            })
+
+            # Submit invalid BP data
+            response = client.post('/add_metric', data={
+                'metric_type': 'BP',
+                'systolic': 'invalid',  # Invalid data
+                'diastolic': '80'
+            }, follow_redirects=True)
+
+            self.assertIn(b'Error', response.data)
+
+    def test_missing_required_fields(self):
+        """Test missing required fields"""
+        with self.app as client:
+            response = client.post('/register', data={
+                'name': '',  # Missing required field
+                'email': 'test@example.com'
+            }, follow_redirects=True)
+
+            self.assertIn(b'required', response.data)
+
+if __name__ == '__main__':
+    unittest.main()
