@@ -7,6 +7,15 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Database Configuration
+DB_CONFIG = {
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'database': os.getenv('DB_NAME', 'health_monitor_db'),
+    'user': os.getenv('DB_USER', 'postgres'),
+    'password': os.getenv('DB_PASSWORD', 'Postgres@10063&&'),
+    'port': os.getenv('DB_PORT', '5432')
+}
+
 class Config:
     """Base configuration"""
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -44,3 +53,6 @@ config = {
     'production': ProductionConfig,
     'default': DevelopmentConfig
 }
+
+# Export configurations
+__all__ = ['DB_CONFIG', 'Config', 'DevelopmentConfig', 'ProductionConfig', 'config']

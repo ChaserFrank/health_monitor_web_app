@@ -31,4 +31,182 @@
                 <i class="bi bi-plus-circle"></i> Add Health Metric
             </a>
         </div>
-       
+        {% endif %}
+    </div>
+</div>
+
+<div class="container">
+    <!-- Features Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="text-center mb-4">Why Choose Health Monitor Pro?</h2>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <i class="bi bi-clipboard-data display-4 text-primary mb-3"></i>
+                    <h4 class="card-title">Comprehensive Tracking</h4>
+                    <p class="card-text">
+                        Monitor blood pressure, glucose levels, weight, exercise, and more in one place.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <i class="bi bi-graph-up display-4 text-success mb-3"></i>
+                    <h4 class="card-title">Smart Analytics</h4>
+                    <p class="card-text">
+                        Get personalized insights and trends to understand your health better.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <i class="bi bi-bell display-4 text-warning mb-3"></i>
+                    <h4 class="card-title">Smart Alerts</h4>
+                    <p class="card-text">
+                        Receive notifications for abnormal readings and health recommendations.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- How It Works -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="text-center mb-4">How It Works</h2>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="text-center">
+                <div class="step-number">1</div>
+                <h5>Create Account</h5>
+                <p>Sign up in less than a minute with your basic information.</p>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="text-center">
+                <div class="step-number">2</div>
+                <h5>Add Metrics</h5>
+                <p>Record your health measurements regularly.</p>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="text-center">
+                <div class="step-number">3</div>
+                <h5>Track Progress</h5>
+                <p>View charts and trends of your health data over time.</p>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="text-center">
+                <div class="step-number">4</div>
+                <h5>Get Insights</h5>
+                <p>Receive personalized recommendations and alerts.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Health Tips -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h3 class="text-center mb-4">
+                        <i class="bi bi-lightbulb text-warning"></i> Health Tips
+                    </h3>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="d-flex mb-3">
+                                <i class="bi bi-check-circle-fill text-success me-3"></i>
+                                <div>
+                                    <h6>Stay Hydrated</h6>
+                                    <p class="small mb-0">Drink at least 8 glasses of water daily for optimal health.</p>
+                                </div>
+                            </div>
+                            <div class="d-flex mb-3">
+                                <i class="bi bi-check-circle-fill text-success me-3"></i>
+                                <div>
+                                    <h6>Regular Exercise</h6>
+                                    <p class="small mb-0">Aim for 30 minutes of moderate exercise most days.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex mb-3">
+                                <i class="bi bi-check-circle-fill text-success me-3"></i>
+                                <div>
+                                    <h6>Balanced Diet</h6>
+                                    <p class="small mb-0">Eat a variety of fruits, vegetables, and lean proteins.</p>
+                                </div>
+                            </div>
+                            <div class="d-flex mb-3">
+                                <i class="bi bi-check-circle-fill text-success me-3"></i>
+                                <div>
+                                    <h6>Monitor Regularly</h6>
+                                    <p class="small mb-0">Track your health metrics consistently for better insights.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Demo Info -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <h5><i class="bi bi-info-circle"></i> Demo Information</h5>
+                <p class="mb-0">
+                    This is a demonstration application. For demo purposes, you can use:
+                    <br><strong>Email:</strong> john@example.com | <strong>Password:</strong> any password
+                    <br>Password validation is simplified for demonstration.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.hero-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 0 0 20px 20px;
+}
+
+.step-number {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bold;
+    margin: 0 auto 15px;
+}
+
+.card {
+    transition: transform 0.3s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+</style>
+{% endblock %}
