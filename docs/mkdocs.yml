@@ -1,0 +1,33 @@
+site_name: Smart Health Monitoring System
+site_description: Project Documentation
+site_author: Francis Kimani
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - content.code.copy
+    - content.code.annotate
+  palette:
+    scheme: default
+    primary: teal
+    accent: blue
+
+nav:
+  - Home: index.md
+  - Project Overview: overview.md
+  - Features: features.md
+  - Technology Stack: tech-stack.md
+  - System Architecture: architecture.md
+  - Database Design: database.md
+  - Installation & Setup: installation.md
+  - Application Usage: usage.md
+  - Testing: testing.md
+  - Deployment: deployment.md
+  - Error Handling: error-handling.md
+  - Future Enhancements: future.md
+  - Conclusion: conclusion.md
+  - References: references.md
+  - Appendix: appendix.md
+
