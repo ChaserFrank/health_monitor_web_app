@@ -420,11 +420,17 @@ def view_metrics():
 @app.route('/analytics')
 @login_required
 def analytics():
-    """Health analytics and charts"""
+    """Health analytics and charts
+    Prepares per-metric series from recent readings and renders Plotly charts.
+    Notes:
+    - Raw rows come from get_user_metrics and are expanded into lists suitable for pandas DataFrames
+    - Dates are parsed to datetime and sorted to ensure correct line chart order
+    - Only BP and Glucose charts are currently rendered; extend similarly for Weight/Exercise
+    """
     # Get metrics for charts
     metrics = db_manager.get_user_metrics(current_user.user_id, limit=100)
 
-    # Prepare data for charts
+    # Prepare data for charts (typed lists to ease DataFrame creation)
     bp_data = []
     glucose_data = []
     weight_data = []
@@ -505,7 +511,7 @@ def analytics():
         )
         charts['glucose'] = json.dumps(fig_glucose, cls=plotly.utils.PlotlyJSONEncoder)
 
-    # Get stats
+    # Get stats (aggregates over the last 30 days from the DB layer)
     stats = db_manager.get_health_stats(current_user.user_id)
 
     return render_template('analytics.html',
@@ -602,7 +608,13 @@ def delete_alert(alert_id):
 @app.route('/export_data/<format>')
 @login_required
 def export_data(format):
-    """Export user data in specified format"""
+    """Export user data in specified format (csv or json).
+    Implementation details:
+    - JSON: returns a nested object including user meta and typed metrics.
+    - CSV: writes a wide row per metric with Value1/Value2 columns to capture the
+      most relevant fields per metric type (e.g., systolic/diastolic or glucose/is_fasting).
+    Note: CSV is a lossy flattening of typed metrics; JSON preserves types best.
+    """
     if format not in ['csv', 'json']:
         flash('Invalid export format', 'error')
         return redirect(url_for('profile'))
@@ -655,7 +667,7 @@ def export_data(format):
         import csv
         from io import StringIO
 
-        # Create CSV
+        # Create CSV with a fixed header that can accommodate all metric types
         si = StringIO()
         writer = csv.writer(si)
 
@@ -664,6 +676,7 @@ def export_data(format):
 
         # Write data
         for metric in export_data['metrics']:
+            # Value1/Value2 map to the most salient fields by type, leaving Value3 blank for future extension
             row = [
                 metric['type'],
                 metric['date'],
