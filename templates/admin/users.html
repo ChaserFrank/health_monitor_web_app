@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - User List{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mt-4">User Management</h1>
+    <p>List of all registered users.</p>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <table class="table table-striped table-hover">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Age</th>
+                        <th>Gender</th>
+                        <th>Phone</th>
+                        <th>Registered On</th>
+                        <th>Admin</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>{{ user[0] }}</td>
+                        <td>{{ user[1] }}</td>
+                        <td>{{ user[4] }}</td>
+                        <td>{{ user[2] }}</td>
+                        <td>{{ user[3] }}</td>
+                        <td>{{ user[5] }}</td>
+                        <td>{{ user[6].strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            {% if user[7] %}
+                                <span class="badge bg-success">Yes</span>
+                            {% else %}
+                                <span class="badge bg-secondary">No</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center">No users found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

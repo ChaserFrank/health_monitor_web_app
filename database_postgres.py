@@ -100,6 +100,9 @@ class PostgresDBManager:
     def _create_tables(self):
         """Create all necessary tables with constraints and indexes"""
 
+        # Drop tables if they exist
+        self.cursor.execute("DROP TABLE IF EXISTS user_auth, health_goals, alerts, health_metrics, users CASCADE;")
+
         # Users table
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
@@ -111,7 +114,8 @@ class PostgresDBManager:
                 phone VARCHAR(20),
                 created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_login TIMESTAMP,
-                is_active BOOLEAN DEFAULT TRUE
+                is_active BOOLEAN DEFAULT TRUE,
+                is_admin BOOLEAN DEFAULT FALSE
             )
         ''')
 
@@ -262,7 +266,7 @@ class PostgresDBManager:
         """Get user by email"""
         try:
             self.cursor.execute('''
-                SELECT user_id, name, age, gender, email, phone, created_date
+                SELECT user_id, name, age, gender, email, phone, created_date, is_admin
                 FROM users 
                 WHERE email = %s AND is_active = TRUE
             ''', (email,))
@@ -588,3 +592,20 @@ class PostgresDBManager:
                 print("✅ Database connection closed.")
         except:
             pass  # Ignore errors during cleanup
+
+    def get_all_users(self) -> List[Tuple]:
+        """Get all users from the database"""
+        try:
+            self.cursor.execute('''
+                SELECT user_id, name, age, gender, email, phone, created_date, is_admin
+                FROM users 
+                ORDER BY created_date DESC
+            ''')
+            return self.cursor.fetchall()
+        except Error as e:
+            print(f"Error fetching all users: {e}")
+            return []
+        except Exception as e:
+            print(f"Error fetching all users: {e}")
+            return []
+

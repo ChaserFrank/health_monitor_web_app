@@ -50,7 +50,8 @@ def load_user(user_id):
                 name=user_data[1],
                 age=user_data[2],
                 gender=user_data[3],
-                email=user_data[4]
+                email=user_data[4],
+                is_admin=user_data[9] if len(user_data) > 9 else False
             )
     except Exception as e:
         app.logger.error(f"Error loading user: {e}")
@@ -61,7 +62,7 @@ def load_user(user_id):
 class WebUser:
     """Web user class for Flask-Login"""
 
-    def __init__(self, user_id, name, age, gender, email, phone=None):
+    def __init__(self, user_id, name, age, gender, email, phone=None, is_admin=False):
         self.id = user_id
         self.user_id = user_id
         self.name = name
@@ -69,12 +70,25 @@ class WebUser:
         self.gender = gender
         self.email = email
         self.phone = phone
+        self.is_admin = is_admin
         self.is_authenticated = True
         self.is_active = True
         self.is_anonymous = False
 
     def get_id(self):
         return str(self.id)
+
+
+# ==================== DECORATORS ====================
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not getattr(current_user, 'is_admin', False):
+            flash('You do not have permission to access this page.', 'danger')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 # ==================== ROUTES ====================
@@ -154,14 +168,14 @@ def login():
             user_data = db_manager.get_user_by_email(email)
 
             if user_data:
-                user_id, name, age, gender, email, phone, created_date = user_data
+                user_id, name, age, gender, email, phone, created_date, is_admin = user_data
 
                 # Verify password (simplified - in real app, use proper auth table)
                 # For demo purposes, we'll skip password check
                 # In production: check_password_hash(stored_hash, password)
 
                 # Create user object
-                user = WebUser(user_id, name, age, gender, email, phone)
+                user = WebUser(user_id, name, age, gender, email, phone, is_admin)
 
                 # Login user
                 login_user(user)
