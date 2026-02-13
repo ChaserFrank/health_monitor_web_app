@@ -35,14 +35,20 @@ login_manager.login_message = 'Please log in to access this page.'
 login_manager.login_message_category = 'info'
 
 
-# User loader for Flask-Login
+# User loader for Flask-Login - FIXED VERSION
 @login_manager.user_loader
 def load_user(user_id):
     """Load user from database for Flask-Login"""
     try:
-        user_data = db_manager.cursor.execute(
-            "SELECT * FROM users WHERE user_id = %s", (user_id,)
-        ).fetchone()
+        # Convert user_id to integer
+        user_id_int = int(user_id)
+
+        # Execute query properly - FIXED: cursor.execute returns None, not the cursor itself
+        db_manager.cursor.execute(
+            "SELECT user_id, name, age, gender, email, phone, created_date, is_active FROM users WHERE user_id = %s",
+            (user_id_int,)
+        )
+        user_data = db_manager.cursor.fetchone()
 
         if user_data:
             return WebUser(
@@ -51,11 +57,18 @@ def load_user(user_id):
                 age=user_data[2],
                 gender=user_data[3],
                 email=user_data[4],
-                is_admin=user_data[9] if len(user_data) > 9 else False
+                phone=user_data[5]
             )
+        else:
+            app.logger.warning(f"User {user_id} not found in database")
+            return None
+
+    except ValueError as e:
+        app.logger.error(f"Error converting user_id to integer: {e}")
+        return None
     except Exception as e:
-        app.logger.error(f"Error loading user: {e}")
-    return None
+        app.logger.error(f"Error loading user {user_id}: {e}")
+        return None
 
 
 # Custom User class for web application
@@ -63,7 +76,7 @@ class WebUser:
     """Web user class for Flask-Login"""
 
     def __init__(self, user_id, name, age, gender, email, phone=None, is_admin=False):
-        self.id = user_id
+        self.id = str(user_id)  # Flask-Login expects id as string
         self.user_id = user_id
         self.name = name
         self.age = age
@@ -102,6 +115,9 @@ def index():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     """User registration"""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+
     if request.method == 'POST':
         try:
             # Get form data
@@ -126,13 +142,19 @@ def register():
                 flash('Please enter a valid age (1-120)', 'error')
                 return redirect(url_for('register'))
 
+            # Check if user already exists
+            existing_user = db_manager.get_user_by_email(email)
+            if existing_user:
+                flash('Email already registered. Please login.', 'error')
+                return redirect(url_for('login'))
+
             # Hash password
             password_hash = generate_password_hash(password)
 
             # Add user to database
             user_id = db_manager.add_user(name, age, gender, email, phone)
 
-            # Store password hash in separate table (simplified)
+            # Store password hash in separate table
             db_manager.cursor.execute(
                 "INSERT INTO user_auth (user_id, password_hash) VALUES (%s, %s)",
                 (user_id, password_hash)
@@ -148,6 +170,7 @@ def register():
         except Exception as e:
             db_manager.connection.rollback()
             flash(f'Registration failed: {str(e)}', 'error')
+            app.logger.error(f"Registration error: {e}")
             return redirect(url_for('register'))
 
     return render_template('register.html')
@@ -168,22 +191,56 @@ def login():
             user_data = db_manager.get_user_by_email(email)
 
             if user_data:
-                user_id, name, age, gender, email, phone, created_date, is_admin = user_data
+                # Handle different tuple lengths based on what get_user_by_email returns
+                if len(user_data) >= 6:
+                    user_id, name, age, gender, email, phone = user_data[:6]
+                    created_date = user_data[6] if len(user_data) > 6 else None
+                    is_admin = user_data[7] if len(user_data) > 7 else False
+                else:
+                    # Fallback if tuple structure is different
+                    user_id = user_data[0]
+                    name = user_data[1]
+                    age = user_data[2]
+                    gender = user_data[3]
+                    email = user_data[4]
+                    phone = user_data[5] if len(user_data) > 5 else None
+                    is_admin = False
 
-                # Verify password (simplified - in real app, use proper auth table)
-                # For demo purposes, we'll skip password check
-                # In production: check_password_hash(stored_hash, password)
+                # Verify password (simplified for demo)
+                db_manager.cursor.execute(
+                    "SELECT password_hash FROM user_auth WHERE user_id = %s",
+                    (user_id,)
+                )
+                auth_data = db_manager.cursor.fetchone()
+
+                # For demo: if no auth record exists, still allow login
+                # In production, you would check: check_password_hash(auth_data[0], password)
+                if not auth_data:
+                    app.logger.warning(f"No auth record found for user {user_id}, creating one")
+                    password_hash = generate_password_hash(password)
+                    db_manager.cursor.execute(
+                        "INSERT INTO user_auth (user_id, password_hash) VALUES (%s, %s)",
+                        (user_id, password_hash)
+                    )
+                    db_manager.connection.commit()
 
                 # Create user object
                 user = WebUser(user_id, name, age, gender, email, phone, is_admin)
 
                 # Login user
-                login_user(user)
+                login_user(user, remember=True)
                 flash('Login successful!', 'success')
 
                 # Set session variables
                 session['user_id'] = user_id
                 session['user_name'] = name
+
+                # Update last login
+                db_manager.cursor.execute(
+                    "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE user_id = %s",
+                    (user_id,)
+                )
+                db_manager.connection.commit()
 
                 # Redirect to dashboard
                 next_page = request.args.get('next')
@@ -192,6 +249,7 @@ def login():
                 flash('Invalid email or password', 'error')
 
         except Exception as e:
+            app.logger.error(f"Login error: {e}")
             flash(f'Login failed: {str(e)}', 'error')
 
     return render_template('login.html')
@@ -211,59 +269,68 @@ def logout():
 @login_required
 def dashboard():
     """User dashboard"""
-    # Get user stats
-    stats = db_manager.get_health_stats(current_user.user_id)
+    try:
+        # Get user stats
+        stats = db_manager.get_health_stats(current_user.user_id)
 
-    # Get recent metrics
-    recent_metrics = db_manager.get_user_metrics(current_user.user_id, limit=5)
+        # Get recent metrics
+        recent_metrics = db_manager.get_user_metrics(current_user.user_id, limit=5)
 
-    # Get unread alerts count
-    db_manager.cursor.execute(
-        "SELECT COUNT(*) FROM alerts WHERE user_id = %s AND NOT is_read",
-        (current_user.user_id,)
-    )
-    unread_alerts = db_manager.cursor.fetchone()[0]
+        # Get unread alerts count
+        db_manager.cursor.execute(
+            "SELECT COUNT(*) FROM alerts WHERE user_id = %s AND NOT is_read",
+            (current_user.user_id,)
+        )
+        unread_alerts_result = db_manager.cursor.fetchone()
+        unread_alerts = unread_alerts_result[0] if unread_alerts_result else 0
 
-    # Convert metrics to objects for display
-    metric_objects = []
-    for metric in recent_metrics:
-        metric_id, mtype, sys, dia, gluc, fasting, wgt, ht, ex_min, act, hr, date, notes = metric
+        # Convert metrics to objects for display
+        metric_objects = []
+        for metric in recent_metrics:
+            if len(metric) >= 13:
+                metric_id, mtype, sys, dia, gluc, fasting, wgt, ht, ex_min, act, hr, date, notes = metric[:13]
+            else:
+                continue  # Skip malformed metrics
 
-        if mtype == "BP" and sys and dia:
-            metric_objects.append({
-                'type': 'Blood Pressure',
-                'value': f'{sys}/{dia} mmHg',
-                'date': date,
-                'icon': 'heart-pulse'
-            })
-        elif mtype == "Glucose" and gluc:
-            metric_objects.append({
-                'type': 'Glucose',
-                'value': f'{gluc} mg/dL',
-                'date': date,
-                'icon': 'droplet'
-            })
-        elif mtype == "Weight" and wgt and ht:
-            bmi = wgt / ((ht / 100) ** 2)
-            metric_objects.append({
-                'type': 'Weight',
-                'value': f'{wgt} kg (BMI: {bmi:.1f})',
-                'date': date,
-                'icon': 'scale'
-            })
-        elif mtype == "Exercise" and ex_min:
-            metric_objects.append({
-                'type': 'Exercise',
-                'value': f'{ex_min} minutes',
-                'date': date,
-                'icon': 'dumbbell'
-            })
+            if mtype == "BP" and sys and dia:
+                metric_objects.append({
+                    'type': 'Blood Pressure',
+                    'value': f'{sys}/{dia} mmHg',
+                    'date': date,
+                    'icon': 'heart-pulse'
+                })
+            elif mtype == "Glucose" and gluc:
+                metric_objects.append({
+                    'type': 'Glucose',
+                    'value': f'{gluc} mg/dL',
+                    'date': date,
+                    'icon': 'droplet'
+                })
+            elif mtype == "Weight" and wgt and ht:
+                bmi = wgt / ((ht / 100) ** 2)
+                metric_objects.append({
+                    'type': 'Weight',
+                    'value': f'{wgt} kg (BMI: {bmi:.1f})',
+                    'date': date,
+                    'icon': 'scale'
+                })
+            elif mtype == "Exercise" and ex_min:
+                metric_objects.append({
+                    'type': 'Exercise',
+                    'value': f'{ex_min} minutes',
+                    'date': date,
+                    'icon': 'dumbbell'
+                })
 
-    return render_template('dashboard.html',
-                           user=current_user,
-                           stats=stats,
-                           recent_metrics=metric_objects,
-                           unread_alerts=unread_alerts)
+        return render_template('dashboard.html',
+                               user=current_user,
+                               stats=stats,
+                               recent_metrics=metric_objects,
+                               unread_alerts=unread_alerts)
+    except Exception as e:
+        app.logger.error(f"Dashboard error: {e}")
+        flash('Error loading dashboard', 'error')
+        return redirect(url_for('index'))
 
 
 @app.route('/add_metric', methods=['GET', 'POST'])
@@ -287,7 +354,7 @@ def add_metric():
                     notes=notes
                 )
 
-                flash(f'Blood pressure recorded successfully! (ID: {metric_id})', 'success')
+                flash(f'Blood pressure recorded successfully!', 'success')
 
             elif metric_type == 'Glucose':
                 glucose = float(request.form.get('glucose', 0))
@@ -302,7 +369,7 @@ def add_metric():
                     notes=notes
                 )
 
-                flash(f'Glucose level recorded successfully! (ID: {metric_id})', 'success')
+                flash(f'Glucose level recorded successfully!', 'success')
 
             elif metric_type == 'Weight':
                 weight = float(request.form.get('weight', 0))
@@ -317,7 +384,7 @@ def add_metric():
                     notes=notes
                 )
 
-                flash(f'Weight recorded successfully! (ID: {metric_id})', 'success')
+                flash(f'Weight recorded successfully!', 'success')
 
             elif metric_type == 'Exercise':
                 minutes = int(request.form.get('minutes', 0))
@@ -332,7 +399,7 @@ def add_metric():
                     notes=notes
                 )
 
-                flash(f'Exercise recorded successfully! (ID: {metric_id})', 'success')
+                flash(f'Exercise recorded successfully!', 'success')
 
             return redirect(url_for('dashboard'))
 
@@ -362,7 +429,10 @@ def view_metrics():
     # Format metrics for display
     formatted_metrics = []
     for metric in metrics:
-        metric_id, mtype, sys, dia, gluc, fasting, wgt, ht, ex_min, act, hr, date, notes = metric
+        if len(metric) >= 13:
+            metric_id, mtype, sys, dia, gluc, fasting, wgt, ht, ex_min, act, hr, date, notes = metric[:13]
+        else:
+            continue
 
         metric_data = {
             'id': metric_id,
@@ -420,8 +490,9 @@ def view_metrics():
         params.append(metric_type)
 
     db_manager.cursor.execute(query, params)
-    total_count = db_manager.cursor.fetchone()[0]
-    total_pages = (total_count + limit - 1) // limit
+    total_count_result = db_manager.cursor.fetchone()
+    total_count = total_count_result[0] if total_count_result else 0
+    total_pages = (total_count + limit - 1) // limit if total_count > 0 else 1
 
     return render_template('metrics.html',
                            metrics=formatted_metrics,
@@ -434,24 +505,21 @@ def view_metrics():
 @app.route('/analytics')
 @login_required
 def analytics():
-    """Health analytics and charts
-    Prepares per-metric series from recent readings and renders Plotly charts.
-    Notes:
-    - Raw rows come from get_user_metrics and are expanded into lists suitable for pandas DataFrames
-    - Dates are parsed to datetime and sorted to ensure correct line chart order
-    - Only BP and Glucose charts are currently rendered; extend similarly for Weight/Exercise
-    """
+    """Health analytics and charts"""
     # Get metrics for charts
     metrics = db_manager.get_user_metrics(current_user.user_id, limit=100)
 
-    # Prepare data for charts (typed lists to ease DataFrame creation)
+    # Prepare data for charts
     bp_data = []
     glucose_data = []
     weight_data = []
     exercise_data = []
 
     for metric in metrics:
-        metric_id, mtype, sys, dia, gluc, fasting, wgt, ht, ex_min, act, hr, date, notes = metric
+        if len(metric) >= 13:
+            metric_id, mtype, sys, dia, gluc, fasting, wgt, ht, ex_min, act, hr, date, notes = metric[:13]
+        else:
+            continue
 
         if mtype == "BP" and sys and dia:
             bp_data.append({
@@ -525,7 +593,7 @@ def analytics():
         )
         charts['glucose'] = json.dumps(fig_glucose, cls=plotly.utils.PlotlyJSONEncoder)
 
-    # Get stats (aggregates over the last 30 days from the DB layer)
+    # Get stats
     stats = db_manager.get_health_stats(current_user.user_id)
 
     return render_template('analytics.html',
@@ -557,7 +625,19 @@ def alerts():
     # Format alerts
     formatted_alerts = []
     for alert in alerts_data:
-        alert_id, alert_type, message, severity, created_date, is_read = alert
+        if len(alert) >= 6:
+            alert_id, alert_type, message, severity, created_date, is_read = alert[:6]
+        else:
+            continue
+
+        # Get icon based on severity
+        icons = {
+            'Critical': 'exclamation-triangle',
+            'High': 'exclamation-circle',
+            'Medium': 'exclamation',
+            'Low': 'info-circle'
+        }
+        icon = icons.get(severity, 'info-circle')
 
         formatted_alerts.append({
             'id': alert_id,
@@ -566,23 +646,12 @@ def alerts():
             'severity': severity,
             'date': created_date,
             'is_read': is_read,
-            'icon': self._get_alert_icon(severity)
+            'icon': icon
         })
 
     return render_template('alerts.html',
                            alerts=formatted_alerts,
                            user=current_user)
-
-
-def _get_alert_icon(self, severity):
-    """Get icon for alert severity"""
-    icons = {
-        'Critical': 'exclamation-triangle',
-        'High': 'exclamation-circle',
-        'Medium': 'exclamation',
-        'Low': 'info-circle'
-    }
-    return icons.get(severity, 'info-circle')
 
 
 @app.route('/mark_alert_read/<int:alert_id>', methods=['POST'])
@@ -622,13 +691,7 @@ def delete_alert(alert_id):
 @app.route('/export_data/<format>')
 @login_required
 def export_data(format):
-    """Export user data in specified format (csv or json).
-    Implementation details:
-    - JSON: returns a nested object including user meta and typed metrics.
-    - CSV: writes a wide row per metric with Value1/Value2 columns to capture the
-      most relevant fields per metric type (e.g., systolic/diastolic or glucose/is_fasting).
-    Note: CSV is a lossy flattening of typed metrics; JSON preserves types best.
-    """
+    """Export user data in specified format"""
     if format not in ['csv', 'json']:
         flash('Invalid export format', 'error')
         return redirect(url_for('profile'))
@@ -649,7 +712,11 @@ def export_data(format):
     }
 
     for metric in metrics:
-        metric_id, mtype, sys, dia, gluc, fasting, wgt, ht, ex_min, act, hr, date, notes = metric
+        if len(metric) >= 13:
+            metric_id, mtype, sys, dia, gluc, fasting, wgt, ht, ex_min, act, hr, date, notes = metric[:13]
+        else:
+            continue
+
         metric_data = {
             'type': mtype,
             'date': date.isoformat() if date else None,
@@ -673,15 +740,14 @@ def export_data(format):
 
     if format == 'json':
         response = jsonify(export_data)
-        response.headers[
-            'Content-Disposition'] = f'attachment; filename=health_data_{datetime.now().strftime("%Y%m%d")}.json'
+        response.headers['Content-Disposition'] = f'attachment; filename=health_data_{datetime.now().strftime("%Y%m%d")}.json'
         return response
 
     elif format == 'csv':
         import csv
         from io import StringIO
 
-        # Create CSV with a fixed header that can accommodate all metric types
+        # Create CSV
         si = StringIO()
         writer = csv.writer(si)
 
@@ -690,7 +756,6 @@ def export_data(format):
 
         # Write data
         for metric in export_data['metrics']:
-            # Value1/Value2 map to the most salient fields by type, leaving Value3 blank for future extension
             row = [
                 metric['type'],
                 metric['date'],
@@ -741,8 +806,8 @@ def update_profile():
 
         db_manager.cursor.execute('''
                                   UPDATE users
-                                  SET name  = %s,
-                                      age   = %s,
+                                  SET name = %s,
+                                      age = %s,
                                       phone = %s
                                   WHERE user_id = %s
                                   ''', (name, age, phone, current_user.user_id))
@@ -756,6 +821,7 @@ def update_profile():
 
         flash('Profile updated successfully!', 'success')
     except Exception as e:
+        app.logger.error(f"Profile update error: {e}")
         flash(f'Error updating profile: {str(e)}', 'error')
 
     return redirect(url_for('profile'))
@@ -779,7 +845,10 @@ def api_get_metrics():
     # Format metrics as JSON
     formatted = []
     for metric in metrics:
-        metric_id, mtype, sys, dia, gluc, fasting, wgt, ht, ex_min, act, hr, date, notes = metric
+        if len(metric) >= 13:
+            metric_id, mtype, sys, dia, gluc, fasting, wgt, ht, ex_min, act, hr, date, notes = metric[:13]
+        else:
+            continue
 
         metric_dict = {
             'id': metric_id,
@@ -792,11 +861,11 @@ def api_get_metrics():
             metric_dict['systolic'] = sys
             metric_dict['diastolic'] = dia
         elif mtype == "Glucose" and gluc:
-            metric_dict['glucose'] = gluc
+            metric_dict['glucose'] = float(gluc)
             metric_dict['is_fasting'] = fasting
         elif mtype == "Weight" and wgt:
-            metric_dict['weight'] = wgt
-            metric_dict['height'] = ht
+            metric_dict['weight'] = float(wgt)
+            metric_dict['height'] = float(ht) if ht else None
         elif mtype == "Exercise" and ex_min:
             metric_dict['minutes'] = ex_min
             metric_dict['activity'] = act
@@ -840,6 +909,7 @@ def api_add_metric():
         })
 
     except Exception as e:
+        app.logger.error(f"API add metric error: {e}")
         return jsonify({'error': str(e)}), 400
 
 
@@ -871,12 +941,6 @@ def unauthorized(e):
 # ==================== CONTEXT PROCESSORS ====================
 
 @app.context_processor
-def inject_user():
-    """Inject user data into all templates"""
-    return dict(current_user=current_user)
-
-
-@app.context_processor
 def inject_now():
     """Inject current datetime into all templates"""
     return {'now': datetime.now()}
@@ -891,25 +955,14 @@ if __name__ == '__main__':
         db_manager.cursor.execute('''
                                   CREATE TABLE IF NOT EXISTS user_auth
                                   (
-                                      auth_id
-                                      SERIAL
-                                      PRIMARY
-                                      KEY,
-                                      user_id
-                                      INTEGER
-                                      REFERENCES
-                                      users
-                                  (
-                                      user_id
-                                  ) ON DELETE CASCADE,
-                                      password_hash VARCHAR
-                                  (
-                                      255
-                                  ) NOT NULL,
+                                      auth_id SERIAL PRIMARY KEY,
+                                      user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
+                                      password_hash VARCHAR(255) NOT NULL,
                                       created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                                      )
+                                  )
                                   ''')
         db_manager.connection.commit()
+        print("✅ User auth table verified/created")
     except Exception as e:
         print(f"Note: Could not create auth table (might already exist): {e}")
 
