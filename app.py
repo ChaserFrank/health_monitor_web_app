@@ -255,15 +255,37 @@ def login():
     return render_template('login.html')
 
 
-@app.route('/logout')
+@app.route('/logout', methods=['GET', 'POST'])
 @login_required
 def logout():
-    """User logout"""
-    logout_user()
-    session.clear()
-    flash('You have been logged out.', 'info')
-    return redirect(url_for('index'))
+    """User logout - accepts both GET and POST"""
+    try:
+        user_name = current_user.name if hasattr(current_user, 'name') else 'User'
 
+        # Log out the user
+        logout_user()
+
+        # Clear session
+        session.clear()
+
+        # If it's a POST request from AJAX, return JSON
+        if request.method == 'POST':
+            return jsonify({
+                'success': True,
+                'message': 'Logged out successfully',
+                'redirect': url_for('index')
+            })
+
+        # For GET requests, redirect with flash
+        flash(f'You have been successfully logged out. Goodbye, {user_name}!', 'success')
+        return redirect(url_for('index'))
+
+    except Exception as e:
+        app.logger.error(f"Logout error: {e}")
+        if request.method == 'POST':
+            return jsonify({'success': False, 'error': str(e)}), 500
+        flash('Error during logout. Please try again.', 'error')
+        return redirect(url_for('index'))
 
 @app.route('/dashboard')
 @login_required
@@ -965,6 +987,334 @@ def inject_now():
     """Inject current datetime into all templates"""
     return {'now': datetime.now()}
 
+
+# ==================== ADMIN ROUTES ====================
+
+@app.route('/admin')
+@login_required
+@admin_required
+def admin_dashboard():
+    """Admin dashboard"""
+    try:
+        # Get all users
+        db_manager.cursor.execute('''
+                                  SELECT user_id,
+                                         name,
+                                         age,
+                                         gender,
+                                         email,
+                                         phone,
+                                         created_date,
+                                         last_login,
+                                         is_admin
+                                  FROM users
+                                  ORDER BY created_date DESC
+                                  ''')
+        users = db_manager.cursor.fetchall()
+
+        # Get system stats
+        db_manager.cursor.execute("SELECT COUNT(*) FROM users")
+        total_users = db_manager.cursor.fetchone()[0]
+
+        db_manager.cursor.execute("SELECT COUNT(*) FROM health_metrics")
+        total_metrics = db_manager.cursor.fetchone()[0]
+
+        db_manager.cursor.execute("SELECT COUNT(*) FROM alerts")
+        total_alerts = db_manager.cursor.fetchone()[0]
+
+        # Format users for display
+        formatted_users = []
+        for user in users:
+            user_id, name, age, gender, email, phone, created_date, last_login, is_admin = user
+            formatted_users.append({
+                'id': user_id,
+                'name': name,
+                'age': age,
+                'gender': gender,
+                'email': email,
+                'phone': phone,
+                'created_date': created_date,
+                'last_login': last_login,
+                'is_admin': is_admin
+            })
+
+        return render_template('admin/dashboard.html',
+                               users=formatted_users,
+                               total_users=total_users,
+                               total_metrics=total_metrics,
+                               total_alerts=total_alerts,
+                               user=current_user)
+    except Exception as e:
+        app.logger.error(f"Admin dashboard error: {e}")
+        flash('Error loading admin dashboard', 'error')
+        return redirect(url_for('dashboard'))
+
+
+@app.route('/admin/users')
+@login_required
+@admin_required
+def admin_users():
+    """View all users"""
+    try:
+        db_manager.cursor.execute('''
+                                  SELECT user_id,
+                                         name,
+                                         age,
+                                         gender,
+                                         email,
+                                         phone,
+                                         created_date,
+                                         last_login,
+                                         is_admin
+                                  FROM users
+                                  ORDER BY created_date DESC
+                                  ''')
+        users = db_manager.cursor.fetchall()
+
+        formatted_users = []
+        for user in users:
+            user_id, name, age, gender, email, phone, created_date, last_login, is_admin = user
+
+            # Get user stats
+            db_manager.cursor.execute(
+                "SELECT COUNT(*) FROM health_metrics WHERE user_id = %s",
+                (user_id,)
+            )
+            metric_count = db_manager.cursor.fetchone()[0]
+
+            db_manager.cursor.execute(
+                "SELECT COUNT(*) FROM alerts WHERE user_id = %s",
+                (user_id,)
+            )
+            alert_count = db_manager.cursor.fetchone()[0]
+
+            formatted_users.append({
+                'id': user_id,
+                'name': name,
+                'age': age,
+                'gender': gender,
+                'email': email,
+                'phone': phone,
+                'created_date': created_date,
+                'last_login': last_login,
+                'is_admin': is_admin,
+                'metric_count': metric_count,
+                'alert_count': alert_count
+            })
+
+        return render_template('admin/users.html',
+                               users=formatted_users,
+                               user=current_user)
+    except Exception as e:
+        app.logger.error(f"Admin users error: {e}")
+        flash('Error loading users', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/user/<int:user_id>')
+@login_required
+@admin_required
+def admin_view_user(user_id):
+    """View specific user details"""
+    try:
+        # Get user details
+        db_manager.cursor.execute('''
+                                  SELECT user_id,
+                                         name,
+                                         age,
+                                         gender,
+                                         email,
+                                         phone,
+                                         created_date,
+                                         last_login,
+                                         is_admin
+                                  FROM users
+                                  WHERE user_id = %s
+                                  ''', (user_id,))
+        user_data = db_manager.cursor.fetchone()
+
+        if not user_data:
+            flash('User not found', 'error')
+            return redirect(url_for('admin_users'))
+
+        user_id, name, age, gender, email, phone, created_date, last_login, is_admin = user_data
+
+        # Get user's health metrics
+        db_manager.cursor.execute('''
+                                  SELECT metric_id,
+                                         metric_type,
+                                         systolic,
+                                         diastolic,
+                                         glucose_level,
+                                         is_fasting,
+                                         weight,
+                                         height,
+                                         exercise_minutes,
+                                         activity_type,
+                                         heart_rate,
+                                         recorded_date,
+                                         notes
+                                  FROM health_metrics
+                                  WHERE user_id = %s
+                                  ORDER BY recorded_date DESC LIMIT 20
+                                  ''', (user_id,))
+        metrics = db_manager.cursor.fetchall()
+
+        # Get user's alerts
+        db_manager.cursor.execute('''
+                                  SELECT alert_id, alert_type, message, severity, created_date, is_read
+                                  FROM alerts
+                                  WHERE user_id = %s
+                                  ORDER BY created_date DESC LIMIT 20
+                                  ''', (user_id,))
+        alerts = db_manager.cursor.fetchall()
+
+        return render_template('admin/view_user.html',
+                               user_data={
+                                   'id': user_id,
+                                   'name': name,
+                                   'age': age,
+                                   'gender': gender,
+                                   'email': email,
+                                   'phone': phone,
+                                   'created_date': created_date,
+                                   'last_login': last_login,
+                                   'is_admin': is_admin
+                               },
+                               metrics=metrics,
+                               alerts=alerts,
+                               user=current_user)
+    except Exception as e:
+        app.logger.error(f"Admin view user error: {e}")
+        flash('Error loading user details', 'error')
+        return redirect(url_for('admin_users'))
+
+
+@app.route('/admin/user/<int:user_id>/toggle_admin', methods=['POST'])
+@login_required
+@admin_required
+def admin_toggle_admin(user_id):
+    """Toggle admin status for a user"""
+    try:
+        # Don't allow toggling your own admin status
+        if user_id == current_user.user_id:
+            flash('You cannot change your own admin status', 'error')
+            return redirect(url_for('admin_users'))
+
+        db_manager.cursor.execute('''
+                                  UPDATE users
+                                  SET is_admin = NOT is_admin
+                                  WHERE user_id = %s RETURNING is_admin
+                                  ''', (user_id,))
+
+        new_status = db_manager.cursor.fetchone()[0]
+        db_manager.connection.commit()
+
+        status_text = "granted" if new_status else "removed"
+        flash(f'Admin privileges {status_text} for user', 'success')
+
+    except Exception as e:
+        app.logger.error(f"Admin toggle error: {e}")
+        flash(f'Error updating admin status: {str(e)}', 'error')
+
+    return redirect(url_for('admin_users'))
+
+
+@app.route('/admin/user/<int:user_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def admin_delete_user(user_id):
+    """Delete a user (admin only)"""
+    try:
+        # Don't allow deleting yourself
+        if user_id == current_user.user_id:
+            flash('You cannot delete your own account', 'error')
+            return redirect(url_for('admin_users'))
+
+        # Get user name before deleting
+        db_manager.cursor.execute(
+            "SELECT name FROM users WHERE user_id = %s",
+            (user_id,)
+        )
+        user_name = db_manager.cursor.fetchone()[0]
+
+        # Delete user (cascade will delete related records)
+        db_manager.cursor.execute(
+            "DELETE FROM users WHERE user_id = %s",
+            (user_id,)
+        )
+        db_manager.connection.commit()
+
+        flash(f'User {user_name} deleted successfully', 'success')
+
+    except Exception as e:
+        app.logger.error(f"Admin delete user error: {e}")
+        flash(f'Error deleting user: {str(e)}', 'error')
+
+    return redirect(url_for('admin_users'))
+
+
+@app.route('/admin/stats')
+@login_required
+@admin_required
+def admin_stats():
+    """System statistics"""
+    try:
+        # User statistics
+        db_manager.cursor.execute("SELECT COUNT(*) FROM users")
+        total_users = db_manager.cursor.fetchone()[0]
+
+        db_manager.cursor.execute("SELECT COUNT(*) FROM users WHERE is_admin = TRUE")
+        admin_users = db_manager.cursor.fetchone()[0]
+
+        db_manager.cursor.execute("SELECT COUNT(*) FROM users WHERE created_date >= CURRENT_DATE - INTERVAL '7 days'")
+        new_users_week = db_manager.cursor.fetchone()[0]
+
+        # Metric statistics
+        db_manager.cursor.execute("SELECT COUNT(*) FROM health_metrics")
+        total_metrics = db_manager.cursor.fetchone()[0]
+
+        db_manager.cursor.execute("""
+                                  SELECT metric_type, COUNT(*)
+                                  FROM health_metrics
+                                  GROUP BY metric_type
+                                  """)
+        metrics_by_type = db_manager.cursor.fetchall()
+
+        # Alert statistics
+        db_manager.cursor.execute("SELECT COUNT(*) FROM alerts")
+        total_alerts = db_manager.cursor.fetchone()[0]
+
+        db_manager.cursor.execute("""
+                                  SELECT severity, COUNT(*)
+                                  FROM alerts
+                                  GROUP BY severity
+                                  """)
+        alerts_by_severity = db_manager.cursor.fetchall()
+
+        # Recent activity
+        db_manager.cursor.execute("""
+                                  SELECT u.name, hm.metric_type, hm.recorded_date
+                                  FROM health_metrics hm
+                                           JOIN users u ON hm.user_id = u.user_id
+                                  ORDER BY hm.recorded_date DESC LIMIT 10
+                                  """)
+        recent_activity = db_manager.cursor.fetchall()
+
+        return render_template('admin/stats.html',
+                               total_users=total_users,
+                               admin_users=admin_users,
+                               new_users_week=new_users_week,
+                               total_metrics=total_metrics,
+                               metrics_by_type=metrics_by_type,
+                               total_alerts=total_alerts,
+                               alerts_by_severity=alerts_by_severity,
+                               recent_activity=recent_activity,
+                               user=current_user)
+    except Exception as e:
+        app.logger.error(f"Admin stats error: {e}")
+        flash('Error loading statistics', 'error')
+        return redirect(url_for('admin_dashboard'))
 
 # ==================== MAIN ====================
 

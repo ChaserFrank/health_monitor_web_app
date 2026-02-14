@@ -49,6 +49,16 @@
                             <i class="bi bi-graph-up"></i> Analytics
                         </a>
                     </li>
+
+                    <!-- Admin Link - Only visible to admin users -->
+                    {% if current_user.is_admin %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin_dashboard') }}">
+                            <i class="bi bi-shield-lock"></i> Admin
+                        </a>
+                    </li>
+                    {% endif %}
+
                     {% endif %}
                 </ul>
 
@@ -57,6 +67,10 @@
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                             <i class="bi bi-person-circle"></i> {{ current_user.name }}
+                            <!-- Admin Badge -->
+                            {% if current_user.is_admin %}
+                            <span class="badge bg-danger ms-1">Admin</span>
+                            {% endif %}
                         </a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="{{ url_for('profile') }}">
@@ -69,10 +83,29 @@
                                 <span class="badge bg-danger">{{ unread }}</span>
                                 {% endif %}
                             </a></li>
+
+                            <!-- Admin Dropdown Items - Only visible to admin users -->
+                            {% if current_user.is_admin %}
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}">
-                                <i class="bi bi-box-arrow-right"></i> Logout
+                            <li><h6 class="dropdown-header">Administration</h6></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_dashboard') }}">
+                                <i class="bi bi-shield-lock"></i> Admin Dashboard
                             </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_users') }}">
+                                <i class="bi bi-people"></i> Manage Users
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_stats') }}">
+                                <i class="bi bi-graph-up"></i> System Stats
+                            </a></li>
+                            {% endif %}
+
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form id="logout-form" action="{{ url_for('logout') }}" method="POST" style="display: none;"> </form>
+                                <a class="dropdown-item text-danger" href="{{ url_for('logout') }}" onclick="event.preventDefault(); document.getElementById('logout-form').submit(); return false;">
+                                <i class="bi bi-box-arrow-right"></i> Logout
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     {% else %}
