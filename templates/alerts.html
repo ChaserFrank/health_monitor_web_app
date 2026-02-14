@@ -84,7 +84,7 @@
                             <h6 class="mb-1">{{ alert.type }}</h6>
                             <p class="mb-1">{{ alert.message }}</p>
                             <small class="text-muted">
-                                <i class="bi bi-clock"></i> {{ alert.date.strftime('%Y-%m-%d %H:%M') }}
+                                <i class="bi bi-clock"></i> {{ alert.date.strftime('%Y-%m-%d %H:%M') if alert.date else 'Unknown' }}
                                 {% if alert.is_read %}
                                 <span class="badge bg-success ms-2">
                                     <i class="bi bi-check"></i> Read
@@ -105,36 +105,12 @@
                             </button>
                         </form>
                         {% endif %}
-                        <button class="btn btn-sm btn-outline-danger" 
-                                data-bs-toggle="modal" 
-                                data-bs-target="#deleteAlertModal{{ alert.id }}">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Delete Modal -->
-            <div class="modal fade" id="deleteAlertModal{{ alert.id }}" tabindex="-1">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Delete Alert</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <p>Are you sure you want to delete this alert?</p>
-                            <div class="alert alert-{{ alert.severity|lower }}">
-                                <strong>{{ alert.type }}</strong><br>
-                                {{ alert.message }}
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <form method="POST" action="{{ url_for('delete_alert', alert_id=alert.id) }}" class="d-inline">
-                                <button type="submit" class="btn btn-danger">Delete Alert</button>
-                            </form>
-                        </div>
+                        <form method="POST" action="{{ url_for('delete_alert', alert_id=alert.id) }}" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                    onclick="return confirm('Are you sure you want to delete this alert?')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -205,10 +181,6 @@
                         <span>Critical Alerts</span>
                         <span class="badge bg-danger">{{ alerts|selectattr('severity', 'equalto', 'Critical')|list|length }}</span>
                     </li>
-                    <li class="list-group-item d-flex justify-content-between">
-                        <span>Today's Alerts</span>
-                        <span class="badge bg-info">{{ alerts|selectattr('date', 'today')|list|length }}</span>
-                    </li>
                 </ul>
             </div>
         </div>
@@ -232,21 +204,28 @@ function filterAlerts() {
 
 // Initialize filter checkboxes
 ['Critical', 'High', 'Medium', 'Low'].forEach(severity => {
-    document.getElementById('show' + severity).addEventListener('change', filterAlerts);
+    const checkbox = document.getElementById('show' + severity);
+    if (checkbox) {
+        checkbox.addEventListener('change', filterAlerts);
+    }
 });
 
 // Toggle read alerts
-document.getElementById('showReadAlerts').addEventListener('change', function() {
-    const readAlerts = document.querySelectorAll('.list-group-item .badge.bg-success');
-    readAlerts.forEach(badge => {
-        const alertItem = badge.closest('.list-group-item');
-        alertItem.style.display = this.checked ? 'block' : 'none';
+const showReadAlerts = document.getElementById('showReadAlerts');
+if (showReadAlerts) {
+    showReadAlerts.addEventListener('change', function() {
+        const readAlerts = document.querySelectorAll('.alert-item');
+        readAlerts.forEach(alertItem => {
+            const isReadBadge = alertItem.querySelector('.badge.bg-success');
+            if (isReadBadge) {
+                alertItem.style.display = this.checked ? 'block' : 'none';
+            }
+        });
     });
-});
+}
 
 // Create alert distribution chart
 {% if alerts %}
-const ctx = document.getElementById('alertChart').getContext('2d');
 const severityCounts = {
     Critical: {{ alerts|selectattr('severity', 'equalto', 'Critical')|list|length }},
     High: {{ alerts|selectattr('severity', 'equalto', 'High')|list|length }},
@@ -254,30 +233,33 @@ const severityCounts = {
     Low: {{ alerts|selectattr('severity', 'equalto', 'Low')|list|length }}
 };
 
-new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-        labels: Object.keys(severityCounts),
-        datasets: [{
-            data: Object.values(severityCounts),
-            backgroundColor: [
-                '#dc3545', // Critical - red
-                '#ffc107', // High - yellow
-                '#0dcaf0', // Medium - cyan
-                '#6c757d'  // Low - gray
-            ],
-            borderWidth: 1
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: {
-            legend: {
-                position: 'bottom'
+const ctx = document.getElementById('alertChart');
+if (ctx) {
+    new Chart(ctx.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(severityCounts),
+            datasets: [{
+                data: Object.values(severityCounts),
+                backgroundColor: [
+                    '#dc3545', // Critical - red
+                    '#ffc107', // High - yellow
+                    '#0dcaf0', // Medium - cyan
+                    '#6c757d'  // Low - gray
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
             }
         }
-    }
-});
+    });
+}
 {% endif %}
 </script>
 {% endblock %}
