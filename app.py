@@ -657,7 +657,7 @@ def alerts():
 @app.route('/mark_alert_read/<int:alert_id>', methods=['POST'])
 @login_required
 def mark_alert_read(alert_id):
-    """Mark alert as read"""
+    """Mark a single alert as read"""
     try:
         db_manager.cursor.execute(
             "UPDATE alerts SET is_read = TRUE WHERE alert_id = %s AND user_id = %s",
@@ -666,6 +666,26 @@ def mark_alert_read(alert_id):
         db_manager.connection.commit()
         flash('Alert marked as read', 'success')
     except Exception as e:
+        app.logger.error(f"Error marking alert read: {e}")
+        flash(f'Error: {str(e)}', 'error')
+
+    return redirect(url_for('alerts'))
+
+
+# ==================== NEW ROUTE ADDED HERE ====================
+@app.route('/mark_all_alerts_read', methods=['POST'])
+@login_required
+def mark_all_alerts_read():
+    """Mark all alerts as read"""
+    try:
+        db_manager.cursor.execute(
+            "UPDATE alerts SET is_read = TRUE WHERE user_id = %s AND NOT is_read",
+            (current_user.user_id,)
+        )
+        db_manager.connection.commit()
+        flash('All alerts marked as read', 'success')
+    except Exception as e:
+        app.logger.error(f"Error marking all alerts read: {e}")
         flash(f'Error: {str(e)}', 'error')
 
     return redirect(url_for('alerts'))
