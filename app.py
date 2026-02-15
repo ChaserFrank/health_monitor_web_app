@@ -255,10 +255,10 @@ def login():
     return render_template('login.html')
 
 
-@app.route('/logout', methods=['GET', 'POST'])
+@app.route('/logout', methods=['POST'])
 @login_required
 def logout():
-    """User logout - accepts both GET and POST"""
+    """User logout - POST only"""
     try:
         user_name = current_user.name if hasattr(current_user, 'name') else 'User'
 
@@ -268,24 +268,14 @@ def logout():
         # Clear session
         session.clear()
 
-        # If it's a POST request from AJAX, return JSON
-        if request.method == 'POST':
-            return jsonify({
-                'success': True,
-                'message': 'Logged out successfully',
-                'redirect': url_for('index')
-            })
-
-        # For GET requests, redirect with flash
         flash(f'You have been successfully logged out. Goodbye, {user_name}!', 'success')
         return redirect(url_for('index'))
 
     except Exception as e:
         app.logger.error(f"Logout error: {e}")
-        if request.method == 'POST':
-            return jsonify({'success': False, 'error': str(e)}), 500
         flash('Error during logout. Please try again.', 'error')
         return redirect(url_for('index'))
+
 
 @app.route('/dashboard')
 @login_required
