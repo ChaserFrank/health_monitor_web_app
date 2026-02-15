@@ -40,6 +40,7 @@ The Smart Health Monitoring System helps users build consistent health tracking 
 - Dashboard, metrics list, analytics charts (Plotly), alerts, profile pages
 - Data export to CSV/JSON
 - JSON API endpoints for metrics (list/add)
+- Admin panel for user management
 
 
 ## Tech stack
@@ -218,9 +219,3 @@ Simple JSON endpoints (no Django REST Framework):
 - Cannot connect to DB: verify DB_HOST/DB_PORT, credentials, and that PostgreSQL is running.
 - Tables missing: the app creates tables on startup; check logs/console for DDL errors.
 - Plotly/pandas errors: ensure dependencies installed with correct versions for your Python runtime.
-
-
-## Assumptions and non‑goals
-- This project uses Flask (not Django). There are no Django apps, urls.py, serializers.py, forms.py, or admin.py files. Where the original request referenced Django, we documented the closest Flask equivalents.
-- Domain models in models.py are plain Python classes; persistence uses explicit SQL/psycopg2 in database_postgres.py.
-- Migrations are not managed by Alembic in this repo; schema is created/verified at runtime.
