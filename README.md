@@ -40,6 +40,7 @@ The Smart Health Monitoring System helps users build consistent health tracking 
 - Dashboard, metrics list, analytics charts (Plotly), alerts, profile pages
 - Data export to CSV/JSON
 - JSON API endpoints for metrics (list/add)
+- Admin panel for user management
 
 
 ## Tech stack
